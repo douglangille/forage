@@ -244,6 +244,11 @@ def create_app(cfg: Config | None = None) -> FastAPI:
     def index():
         return FileResponse(STATIC / "index.html")
 
+    @app.get("/apple-touch-icon.png")
+    @app.get("/apple-touch-icon-precomposed.png")
+    def touch_icon():  # iOS probes the root path when it doesn't use the <link> tag
+        return FileResponse(STATIC / "icons" / "apple-touch-icon.png")
+
     @app.get("/sw.js")
     def sw():  # served from root so its scope covers the whole app
         return FileResponse(STATIC / "sw.js", media_type="text/javascript", headers={"Cache-Control": "no-cache"})
