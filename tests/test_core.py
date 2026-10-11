@@ -157,3 +157,124 @@ def test_settings_cannot_set_a_script(tmp_path):
         import sqlite3
         keys = {r[0] for r in sqlite3.connect(cfg(tmp_path).db_path).execute("select key from settings")}
         assert keys == {"inbox_dir"}
+
+
+def _rss(*items):
+    body = "".join(
+        f"<item><title>{t}</title><link>https://ex.test/{g}</link><guid>{g}</guid><pubDate>{d}</pubDate><description>s</description></item>"
+        for g, t, d in items
+    )
+    return f'<?xml version="1.0"?><rss version="2.0"><channel><title>T</title><link>https://ex.test/</link>{body}</channel></rss>'.encode()
+
+
+def _backfill_client(tmp_path, monkeypatch, handler):
+    import httpx
+    from forage import backfill, feeds
+
+    monkeypatch.setattr(backfill, "PAGE_DELAY", 0)
+    monkeypatch.setattr(backfill, "ARTICLE_DELAY", 0)
+    monkeypatch.setattr(feeds, "client", lambda cfg: httpx.AsyncClient(transport=httpx.MockTransport(handler), follow_redirects=True))
+    client = TestClient(create_app(cfg(tmp_path)))
+    client.__enter__()
+    return client
+
+
+def _run_backfill(client, feed_url="https://ex.test/feed"):
+    import time
+
+    c = client
+    c.post("/api/opml", content=f'<opml><body><outline xmlns="" type="rss" text="T" xmlUrl="{feed_url}"/></body></opml>'.encode())
+    time.sleep(0.3)
+    fid = c.get("/api/feeds").json()[0]["id"]
+    c.post(f"/api/feeds/{fid}/backfill", json={"limit": 10})
+    for _ in range(100):
+        st = c.get(f"/api/feeds/{fid}/backfill").json()
+        if st["state"] != "running":
+            return st
+        time.sleep(0.1)
+    raise AssertionError("backfill never finished")
+
+
+def test_backfill_paged_feed(tmp_path, monkeypatch):
+    import httpx
+
+    def handler(req: httpx.Request):
+        n = req.url.params.get("paged")
+        if n is None:
+            return httpx.Response(200, content=_rss(("a", "A", "Wed, 08 Oct 2026 10:00:00 GMT")))
+        if n == "2":
+            return httpx.Response(200, content=_rss(("b", "B", "Tue, 07 Oct 2026 10:00:00 GMT")))
+        return httpx.Response(404)
+
+    c = _backfill_client(tmp_path, monkeypatch, handler)
+    st = _run_backfill(c)
+    assert st["state"] == "done" and st["method"] == "paged feed" and st["new"] == 1
+    entries = c.get("/api/entries").json()
+    assert {e["title"] for e in entries} == {"A", "B"}
+    assert [e["is_read"] for e in entries if e["title"] == "B"] == [1]  # older ones arrive read
+
+
+def test_backfill_ignored_paged_param_and_sitemap(tmp_path, monkeypatch):
+    import httpx
+
+    page = "<html><body><article><h1>Old</h1>" + "<p>" + "word " * 120 + "</p>" * 1 + "<p>" + "more " * 120 + "</p></article></body></html>"
+
+    def handler(req: httpx.Request):
+        path = req.url.path
+        if path == "/feed":
+            return httpx.Response(200, content=_rss(("a", "A", "Wed, 08 Oct 2026 10:00:00 GMT")))  # ignores ?paged, serves page 1
+        if path == "/robots.txt":
+            return httpx.Response(404)
+        if path == "/sitemap.xml":
+            return httpx.Response(200, content=(
+                b'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+                b"<url><loc>https://ex.test/a</loc><lastmod>2026-10-08</lastmod></url>"
+                b"<url><loc>https://ex.test/old-post</loc><lastmod>2026-01-02</lastmod></url>"
+                b"<url><loc>https://ex.test/tag/x</loc><lastmod>2026-01-03</lastmod></url></urlset>"))
+        if path == "/old-post":
+            return httpx.Response(200, text=page, headers={"content-type": "text/html"})
+        return httpx.Response(404)
+
+    c = _backfill_client(tmp_path, monkeypatch, handler)
+    st = _run_backfill(c)
+    assert st["state"] == "done" and st["method"] == "sitemap" and st["new"] == 1
+    urls = {e["url"] for e in c.get("/api/entries").json()}
+    assert urls == {"https://ex.test/a", "https://ex.test/old-post"}
+
+
+def test_backfill_substack_skips_paid(tmp_path, monkeypatch):
+    import httpx
+
+    def handler(req: httpx.Request):
+        if req.url.path == "/feed":
+            return httpx.Response(200, content=_rss(("a", "A", "Wed, 08 Oct 2026 10:00:00 GMT")))
+        if req.url.path == "/api/v1/archive":
+            if req.url.params.get("offset") != "0":
+                return httpx.Response(200, json=[])
+            return httpx.Response(200, json=[
+                {"canonical_url": "https://ex.test/a", "title": "A", "post_date": "2026-10-08T10:00:00.000Z", "audience": "everyone"},
+                {"canonical_url": "https://ex.test/p/free", "title": "Free", "post_date": "2026-09-01T10:00:00.000Z", "audience": "everyone", "subtitle": "sub"},
+                {"canonical_url": "https://ex.test/p/paid", "title": "Paid", "post_date": "2026-08-01T10:00:00.000Z", "audience": "only_paid"},
+            ])
+        return httpx.Response(404)
+
+    c = _backfill_client(tmp_path, monkeypatch, handler)
+    st = _run_backfill(c, "https://x.substack.com/feed")
+    assert st["state"] == "done" and st["method"] == "Substack archive" and st["new"] == 1
+
+
+def test_backfill_rfc5005_archive_links(tmp_path, monkeypatch):
+    import httpx
+
+    def handler(req: httpx.Request):
+        if req.url.path == "/feed":
+            body = _rss(("a", "A", "Wed, 08 Oct 2026 10:00:00 GMT")).replace(
+                b"<item>", b'<atom:link xmlns:atom="http://www.w3.org/2005/Atom" rel="prev-archive" href="/archive1"/><item>', 1)
+            return httpx.Response(200, content=body)
+        if req.url.path == "/archive1":
+            return httpx.Response(200, content=_rss(("z", "Z", "Mon, 01 Jun 2026 10:00:00 GMT")))
+        return httpx.Response(404)
+
+    c = _backfill_client(tmp_path, monkeypatch, handler)
+    st = _run_backfill(c)
+    assert st["method"] == "archived feed pages" and st["new"] == 1

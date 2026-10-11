@@ -10,7 +10,7 @@ from fastapi import Body, FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import clip, db, extract, feeds, opml, search
+from . import backfill, clip, db, extract, feeds, opml, search
 from .config import Config, load
 
 STATIC = Path(__file__).parent / "static"
@@ -183,6 +183,38 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         n = conn.execute("UPDATE feeds SET folder='' WHERE folder=?", (name,)).rowcount  # feeds are kept, just unfiled
         conn.commit()
         return {"unfiled": n}
+
+    # ---- backfill: older articles than the feed itself carries ----
+    backfills: dict[int, dict] = {}
+    bg_tasks: set = set()
+
+    @app.post("/api/feeds/{fid}/backfill")
+    async def start_backfill(fid: int, body: dict | None = Body(None)):
+        row = conn.execute("SELECT * FROM feeds WHERE id=?", (fid,)).fetchone()
+        if not row:
+            raise HTTPException(404, "no such feed")
+        if backfills.get(fid, {}).get("state") == "running":
+            return backfills[fid]
+        try:
+            limit = int((body or {}).get("limit", 50))
+        except (TypeError, ValueError):
+            limit = 50
+        st = backfills[fid] = {"state": "running", "method": None, "new": 0, "checked": 0, "message": ""}
+
+        async def work():
+            try:
+                st.update(await backfill.run(conn, cfg, row, limit, st), state="done")
+            except Exception as exc:
+                st.update(state="error", message=str(exc)[:200])
+
+        task = asyncio.create_task(work())
+        bg_tasks.add(task)
+        task.add_done_callback(bg_tasks.discard)
+        return st
+
+    @app.get("/api/feeds/{fid}/backfill")
+    def backfill_status(fid: int):
+        return backfills.get(fid, {"state": "idle"})
 
     @app.delete("/api/feeds/{fid}")
     def delete_feed(fid: int):

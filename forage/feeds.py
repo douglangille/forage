@@ -54,7 +54,7 @@ def parse(body: bytes | str, feed_url: str):
     return feedparser.parse(body, sanitize_html=False)
 
 
-def _store_entries(conn: sqlite3.Connection, feed_id: int, parsed, base_url: str) -> int:
+def _store_entries(conn: sqlite3.Connection, feed_id: int, parsed, base_url: str, read: bool = False) -> int:
     new = 0
     for e in parsed.entries:
         link = e.get("link", "") or ""
@@ -70,13 +70,13 @@ def _store_entries(conn: sqlite3.Connection, feed_id: int, parsed, base_url: str
         author = e.get("author", "") or ""
         cur = conn.execute(
             """INSERT OR IGNORE INTO entries
-               (feed_id, guid, url, title, author, published, summary, feed_html, image)
-               VALUES (?,?,?,?,?,?,?,?,?)""",
+               (feed_id, guid, url, title, author, published, summary, feed_html, image, is_read)
+               VALUES (?,?,?,?,?,?,?,?,?,?)""",
             (
                 feed_id, guid, link, html.unescape(e.get("title") or "").strip() or link, author,
                 _entry_time(e), plain,
                 extract.sanitize(body, link or base_url) if body else "",
-                _first_image(e, body),
+                _first_image(e, body), 1 if read else 0,
             ),
         )
         new += cur.rowcount

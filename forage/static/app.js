@@ -322,6 +322,22 @@ $("#form-feed").addEventListener("submit", async (ev) => {
   } catch (e) { $("#feed-msg").textContent = e.message; }
   b.disabled = false;
 });
+$("#feed-backfill").onclick = async () => {
+  const f = currentFeed(); if (!f) return;
+  const b = $("#feed-backfill"), msg = $("#feed-msg"); b.disabled = true; msg.textContent = "Looking for older articles…";
+  try {
+    let st = await api(`/feeds/${f.id}/backfill`, { method: "POST", body: { limit: 50 } });
+    while (st.state === "running") {
+      msg.textContent = st.new ? `Found ${st.new} so far…` : "Looking for older articles…";
+      await new Promise((r) => setTimeout(r, 1500));
+      st = await api(`/feeds/${f.id}/backfill`);
+    }
+    if (st.state === "error") throw new Error(st.message);
+    msg.textContent = st.new ? `Added ${st.new} older articles (${st.method}), marked read.` : st.message;
+    if (st.new) { await loadFeeds(); await loadEntries(); }
+  } catch (e) { msg.textContent = e.message; }
+  b.disabled = false;
+};
 $("#feed-remove").onclick = async () => {
   const f = currentFeed(); if (!f) return;
   if (!confirm(`Remove "${f.title || f.url}" and its articles? Anything you saved to Obsidian stays.`)) return;

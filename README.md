@@ -23,6 +23,7 @@ Not affiliated with Obsidian, Readwise or any feed service.
 - **Optional commit and push.** If the vault is a git checkout, a save can also commit just that file and push it, so phones and other machines pick it up through whatever git sync you already use.
 - **Settings in the app.** Inbox folder, commit-and-push, author style and refresh interval are set from a gear button, with no config file.
 - **Find feeds.** Paste a site, page or feed address to list every feed behind it, with built-in rules for Substack, GitHub (releases and commits), Reddit, Medium, YouTube and Bluesky. Or type keywords to search Substack and Feedly.
+- **Older articles on demand.** Feeds only carry their latest handful. "Fetch older articles" in a feed's edit dialog tries archived-feed links (RFC 5005), Substack's archive API, WordPress-style `?paged=`, then the site's sitemap, and files what it finds as already read. It never runs on its own.
 - **Folders.** Rename, merge and delete folders, move feeds between them, and collapse them in the sidebar.
 - **OPML** import and export.
 - **Keyboard:** `j`/`k` next and previous, `s` save, `m` toggle read, `f` star, `o` open the original, `u` unread only, `r` refresh, `/` search.
