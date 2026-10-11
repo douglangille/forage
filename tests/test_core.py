@@ -66,6 +66,9 @@ def test_api_flow(tmp_path, monkeypatch):
         text = (c.inbox_dir / s["path"]).read_text()
         assert 'source: "https://ex.test/a"' in text and "word word" in text
         assert client.post(f"/api/entries/{eid}/save").json()["already"] is True
+        cl = client.get(f"/api/entries/{eid}/clip").json()
+        assert cl["filename"] == "Hello-World-1.md" and cl["markdown"].startswith("---\ntitle:") and cl["saved_path"] == s["path"]
+        assert client.post(f"/api/entries/{eid}/saved", json={"path": ""}).status_code == 400
         assert client.get("/api/opml").text.count("xmlUrl") == 1
         assert client.get("/api/feeds").json()[0]["unread"] == 0
 

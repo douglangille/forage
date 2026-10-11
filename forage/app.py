@@ -4,6 +4,7 @@ import html
 import os
 import sqlite3
 from contextlib import asynccontextmanager
+from datetime import datetime
 from pathlib import Path
 
 from fastapi import Body, FastAPI, HTTPException, Query, Request, Response
@@ -372,6 +373,24 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         if root:
             asyncio.create_task(_publish(root, path, row["title"]))  # background: don't make the tap wait on a push
         return {"path": path.name, "already": False}
+
+    @app.get("/api/entries/{eid}/clip")
+    async def entry_clip(eid: int):
+        """The clip as text, for a client that writes it into the vault itself (the Obsidian plugin)."""
+        row = _entry(eid)
+        text = clip.render(dict(row), await _article_html(row), wikilink_author(), datetime.now().strftime("%Y-%m-%d"))
+        return {"filename": clip.filename(row["title"]) + ".md", "markdown": text, "saved_path": row["saved_path"]}
+
+    @app.post("/api/entries/{eid}/saved")
+    def mark_saved(eid: int, body: dict = Body(...)):
+        """Record that a client wrote the clip itself, so the entry shows as saved."""
+        _entry(eid)
+        path = (body.get("path") or "").strip()
+        if not path:
+            raise HTTPException(400, "path required")
+        conn.execute("UPDATE entries SET saved_path=?, is_read=1 WHERE id=?", (path, eid))
+        conn.commit()
+        return {"ok": True}
 
     async def _publish(root: Path, path: Path, title: str):
         # The sync hook is server-side only (env): letting the UI set a script would be remote code execution.
