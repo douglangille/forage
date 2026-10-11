@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import html
 import sqlite3
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -164,6 +165,8 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             sql += " WHERE " + " AND ".join(where)
         sql += " ORDER BY e.published DESC, e.id DESC LIMIT ?"
         rows = [dict(r) for r in conn.execute(sql, (*args, limit)).fetchall()]
+        for r in rows:  # rows stored before entities were decoded at ingest
+            r["title"], r["summary"] = html.unescape(r["title"]), html.unescape(r["summary"])
         return rows
 
     def _entry(eid: int) -> sqlite3.Row:

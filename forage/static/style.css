@@ -196,3 +196,7 @@ dialog input[type=text], dialog select { display: block; width: 100%; margin-top
 #nav > .nav-item.nav-feed { margin-left: 40px; width: calc(100% - 40px); }
 .nav-fold .caret { width: 26px; }
 
+
+/* Manage's top row: button, label and link must render identically (the dialog's small-label style was leaking into Import). */
+#dlg-manage .row.wrap { gap: 8px; margin-bottom: 4px; }
+#dlg-manage .btn { display: inline-flex; align-items: center; margin: 0; padding: 7px 12px; font-size: 14px; line-height: 1.2; color: var(--accent); background: none; text-decoration: none; }

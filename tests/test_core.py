@@ -111,3 +111,17 @@ def test_folder_rename_merge_delete(tmp_path):
         fid = client.get("/api/feeds").json()[0]["id"]
         client.patch(f"/api/feeds/{fid}", json={"title": "New", "folder": "X"})
         assert [f["folder"] for f in client.get("/api/feeds").json() if f["id"] == fid] == ["X"]
+
+
+def test_entities_decoded_in_summary_and_title(tmp_path, monkeypatch):
+    import httpx
+    from forage import feeds
+    rss = b"<?xml version='1.0'?><rss version='2.0'><channel><title>T</title><item><title>It&amp;#8217;s</title><link>https://e/1</link><guid>1</guid><description>Here&amp;#8217;s what</description></item></channel></rss>"
+    async def fake_discover(http, url): return url
+    async def fake_get(self, url, **kw): return httpx.Response(200, content=rss, request=httpx.Request("GET", url))
+    monkeypatch.setattr(feeds, "discover", fake_discover)
+    monkeypatch.setattr("httpx.AsyncClient.get", fake_get)
+    with TestClient(create_app(cfg(tmp_path))) as client:
+        client.post("/api/feeds", json={"url": "https://e/feed"})
+        e = client.get("/api/entries").json()[0]
+        assert "&#" not in e["summary"] and "\u2019" in e["summary"] and "\u2019" in e["title"]

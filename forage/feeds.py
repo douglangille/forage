@@ -1,5 +1,6 @@
 """Fetch, parse and discover feeds; store entries."""
 import calendar
+import html
 import re
 import sqlite3
 from datetime import datetime, timezone
@@ -65,14 +66,14 @@ def _store_entries(conn: sqlite3.Connection, feed_id: int, parsed, base_url: str
             content = max((c.get("value", "") for c in e["content"]), key=len, default="")
         summary_html = e.get("summary", "") or ""
         body = content or summary_html
-        plain = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", summary_html or content)).strip()[:400]
+        plain = html.unescape(re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", summary_html or content))).strip()[:400]
         author = e.get("author", "") or ""
         cur = conn.execute(
             """INSERT OR IGNORE INTO entries
                (feed_id, guid, url, title, author, published, summary, feed_html, image)
                VALUES (?,?,?,?,?,?,?,?,?)""",
             (
-                feed_id, guid, link, (e.get("title") or "").strip() or link, author,
+                feed_id, guid, link, html.unescape(e.get("title") or "").strip() or link, author,
                 _entry_time(e), plain,
                 extract.sanitize(body, link or base_url) if body else "",
                 _first_image(e, body),
