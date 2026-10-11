@@ -42,6 +42,9 @@ def connect(path: Path) -> sqlite3.Connection:
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
     conn.executescript(SCHEMA)
+    if "img_checked" not in {r["name"] for r in conn.execute("PRAGMA table_info(entries)")}:
+        conn.execute("ALTER TABLE entries ADD COLUMN img_checked INTEGER NOT NULL DEFAULT 0")  # og:image lookup done
+        conn.commit()
     return conn
 
 

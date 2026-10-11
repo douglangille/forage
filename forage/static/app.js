@@ -343,7 +343,7 @@ async function runFeedJob(path, startBody, busy, done) {
 $("#feed-backfill").onclick = () => runFeedJob("backfill", { limit: 50 }, "Looking for older articles…",
   (st) => `Added ${st.new} older articles (${st.method}), marked read.`);
 $("#feed-images").onclick = () => runFeedJob("images", {}, "Looking for images…",
-  (st) => `Filled in ${st.new} images.`);
+  (st) => `Updated ${st.new} images.`);
 $("#feed-remove").onclick = async () => {
   const f = currentFeed(); if (!f) return;
   if (!confirm(`Remove "${f.title || f.url}" and its articles? Anything you saved to Obsidian stays.`)) return;
