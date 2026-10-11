@@ -139,7 +139,7 @@ async function openEntry(id, { fromList = true } = {}) {
   $("#art-meta").textContent = e ? e.feed_title : "";
   $("#art-content").innerHTML = '<p class="meta">Loading…</p>';
   $("#art-scroll").scrollTop = 0;
-  if (S.narrow && fromList) { history.pushState({ id }, "", "#e" + id); setView("reader"); }
+  if (S.narrow && fromList) { history.pushState({ view: "reader" }, ""); setView("reader"); }
   try {
     const a = await api("/entries/" + id);
     if (S.cur !== id) return;
@@ -230,7 +230,9 @@ function step(d) {
 /* ---------- navigation ---------- */
 function setView(v) { $("#app").dataset.view = v; }
 function setMenu(open) { $("#app").dataset.menu = open ? "open" : ""; }
-addEventListener("popstate", () => { if (!location.hash.startsWith("#e")) setView("list"); });
+// View state lives in history.state, not the URL hash: a reload used to leave a stale "#e…" that made Back a no-op.
+history.replaceState(null, "", location.pathname);
+addEventListener("popstate", () => setView(history.state?.view === "reader" ? "reader" : "list"));
 
 async function setScope(sc) {
   S.scope = sc; S.q = ""; $("#q").value = "";
@@ -266,7 +268,7 @@ $("#entries").addEventListener("scroll", (e) => {
 });
 $("#btn-menu").onclick = () => setMenu(true);
 $("#scrim").onclick = () => setMenu(false);
-$("#btn-back").onclick = () => { if (location.hash.startsWith("#e")) history.back(); else setView("list"); };
+$("#btn-back").onclick = () => { if (history.state?.view === "reader") history.back(); else setView("list"); };
 $("#btn-refresh").onclick = refreshAll;
 document.querySelectorAll(".save-btn").forEach((b) => (b.onclick = save));
 $("#btn-star").onclick = toggleStar;
