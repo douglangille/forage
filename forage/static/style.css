@@ -213,6 +213,7 @@ dialog input[type=text], dialog select { display: block; width: 100%; margin-top
 #dlg-feed .hint { color: var(--muted); font-size: 12px; margin: 0 0 10px; overflow-wrap: anywhere; }
 #dlg-feed .hint.bad { color: var(--love); }
 #dlg-feed #feed-folder-new { margin: -4px 0 10px; }
+#dlg-feed .row.tools { justify-content: flex-start; margin: 0 0 4px; }
 #dlg-feed .row.between { justify-content: flex-start; }
 #dlg-feed .grow { flex: 1; }
 #dlg-feed button.danger { background: none; border: 0; color: var(--love); padding: 6px 4px; }

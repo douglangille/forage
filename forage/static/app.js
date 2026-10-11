@@ -322,22 +322,28 @@ $("#form-feed").addEventListener("submit", async (ev) => {
   } catch (e) { $("#feed-msg").textContent = e.message; }
   b.disabled = false;
 });
-$("#feed-backfill").onclick = async () => {
+/* Long-running per-feed jobs: start, poll until done, report. */
+async function runFeedJob(path, startBody, busy, done) {
   const f = currentFeed(); if (!f) return;
-  const b = $("#feed-backfill"), msg = $("#feed-msg"); b.disabled = true; msg.textContent = "Looking for older articles…";
+  const btns = document.querySelectorAll("#feed-backfill, #feed-images"), msg = $("#feed-msg");
+  btns.forEach((b) => (b.disabled = true)); msg.textContent = busy;
   try {
-    let st = await api(`/feeds/${f.id}/backfill`, { method: "POST", body: { limit: 50 } });
+    let st = await api(`/feeds/${f.id}/${path}`, { method: "POST", body: startBody });
     while (st.state === "running") {
-      msg.textContent = st.new ? `Found ${st.new} so far…` : "Looking for older articles…";
+      msg.textContent = st.new ? `${busy.replace("…", "")}: ${st.new} so far…` : busy;
       await new Promise((r) => setTimeout(r, 1500));
-      st = await api(`/feeds/${f.id}/backfill`);
+      st = await api(`/feeds/${f.id}/${path}`);
     }
     if (st.state === "error") throw new Error(st.message);
-    msg.textContent = st.new ? `Added ${st.new} older articles (${st.method}), marked read.` : st.message;
+    msg.textContent = st.new ? done(st) : st.message;
     if (st.new) { await loadFeeds(); await loadEntries(); }
   } catch (e) { msg.textContent = e.message; }
-  b.disabled = false;
-};
+  btns.forEach((b) => (b.disabled = false));
+}
+$("#feed-backfill").onclick = () => runFeedJob("backfill", { limit: 50 }, "Looking for older articles…",
+  (st) => `Added ${st.new} older articles (${st.method}), marked read.`);
+$("#feed-images").onclick = () => runFeedJob("images", {}, "Looking for images…",
+  (st) => `Filled in ${st.new} images.`);
 $("#feed-remove").onclick = async () => {
   const f = currentFeed(); if (!f) return;
   if (!confirm(`Remove "${f.title || f.url}" and its articles? Anything you saved to Obsidian stays.`)) return;

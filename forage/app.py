@@ -184,26 +184,21 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         conn.commit()
         return {"unfiled": n}
 
-    # ---- backfill: older articles than the feed itself carries ----
-    backfills: dict[int, dict] = {}
+    # ---- backfill: older articles than the feed itself carries, and missing feature images ----
+    jobs: dict[tuple[int, str], dict] = {}
     bg_tasks: set = set()
 
-    @app.post("/api/feeds/{fid}/backfill")
-    async def start_backfill(fid: int, body: dict | None = Body(None)):
+    def start_job(fid: int, kind: str, make):
         row = conn.execute("SELECT * FROM feeds WHERE id=?", (fid,)).fetchone()
         if not row:
             raise HTTPException(404, "no such feed")
-        if backfills.get(fid, {}).get("state") == "running":
-            return backfills[fid]
-        try:
-            limit = int((body or {}).get("limit", 50))
-        except (TypeError, ValueError):
-            limit = 50
-        st = backfills[fid] = {"state": "running", "method": None, "new": 0, "checked": 0, "message": ""}
+        if jobs.get((fid, kind), {}).get("state") == "running":
+            return jobs[(fid, kind)]
+        st = jobs[(fid, kind)] = {"state": "running", "method": None, "new": 0, "checked": 0, "message": ""}
 
         async def work():
             try:
-                st.update(await backfill.run(conn, cfg, row, limit, st), state="done")
+                st.update(await make(row, st), state="done")
             except Exception as exc:
                 st.update(state="error", message=str(exc)[:200])
 
@@ -212,9 +207,25 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         task.add_done_callback(bg_tasks.discard)
         return st
 
+    @app.post("/api/feeds/{fid}/backfill")
+    async def start_backfill(fid: int, body: dict | None = Body(None)):
+        try:
+            limit = int((body or {}).get("limit", 50))
+        except (TypeError, ValueError):
+            limit = 50
+        return start_job(fid, "backfill", lambda row, st: backfill.run(conn, cfg, row, limit, st))
+
     @app.get("/api/feeds/{fid}/backfill")
     def backfill_status(fid: int):
-        return backfills.get(fid, {"state": "idle"})
+        return jobs.get((fid, "backfill"), {"state": "idle"})
+
+    @app.post("/api/feeds/{fid}/images")
+    async def start_fill_images(fid: int):
+        return start_job(fid, "images", lambda row, st: backfill.fill_images(conn, cfg, row, st))
+
+    @app.get("/api/feeds/{fid}/images")
+    def fill_images_status(fid: int):
+        return jobs.get((fid, "images"), {"state": "idle"})
 
     @app.delete("/api/feeds/{fid}")
     def delete_feed(fid: int):

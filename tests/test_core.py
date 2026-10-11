@@ -279,3 +279,28 @@ def test_backfill_rfc5005_archive_links(tmp_path, monkeypatch):
     c = _backfill_client(tmp_path, monkeypatch, handler)
     st = _run_backfill(c)
     assert st["method"] == "archived feed pages" and st["new"] == 1
+
+
+def test_fill_missing_images(tmp_path, monkeypatch):
+    import httpx
+
+    page = '<html><head><meta property="og:image" content="/pic.jpg"></head><body><p>x</p></body></html>'
+
+    def handler(req: httpx.Request):
+        if req.url.path == "/feed":
+            return httpx.Response(200, content=_rss(("a", "A", "Wed, 08 Oct 2026 10:00:00 GMT")))
+        return httpx.Response(200, text=page, headers={"content-type": "text/html"})
+
+    c = _backfill_client(tmp_path, monkeypatch, handler)
+    import time
+    c.post("/api/opml", content=b'<opml><body><outline type="rss" text="T" xmlUrl="https://ex.test/feed"/></body></opml>')
+    time.sleep(0.3)
+    fid = c.get("/api/feeds").json()[0]["id"]
+    assert c.get("/api/entries").json()[0]["image"] == ""
+    c.post(f"/api/feeds/{fid}/images")
+    for _ in range(100):
+        st = c.get(f"/api/feeds/{fid}/images").json()
+        if st["state"] != "running":
+            break
+        time.sleep(0.1)
+    assert st["new"] == 1 and c.get("/api/entries").json()[0]["image"] == "https://ex.test/pic.jpg"

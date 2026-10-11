@@ -249,3 +249,29 @@ async def run(conn, cfg: Config, feed, limit: int, progress: dict) -> dict:
                 return {"method": name, "new": n, "message": ""}
     msg = "Nothing older found. This site doesn't offer more than the feed."
     return {"method": None, "new": 0, "message": msg + (f" ({'; '.join(errors)[:150]})" if errors else "")}
+
+
+async def fill_images(conn, cfg: Config, feed, progress: dict, limit: int = 100) -> dict:
+    """Fetch each image-less entry's page and take its og:image. Newest first, so a big feed is done in runs."""
+    rows = conn.execute(
+        "SELECT id, url FROM entries WHERE feed_id=? AND image='' AND url!='' ORDER BY published DESC, id DESC LIMIT ?",
+        (feed["id"], limit),
+    ).fetchall()
+    found = 0
+    async with feeds.client(cfg) as http:
+        for row in rows:
+            progress["checked"] += 1
+            await asyncio.sleep(ARTICLE_DELAY)
+            try:
+                r = await http.get(row["url"])
+                if r.status_code != 200 or "html" not in r.headers.get("content-type", "html"):
+                    continue
+                meta = trafilatura.extract_metadata(r.text, default_url=str(r.url))
+            except Exception:
+                continue
+            if meta and meta.image:
+                conn.execute("UPDATE entries SET image=? WHERE id=?", (urljoin(str(r.url), meta.image), row["id"]))
+                conn.commit()
+                found += 1
+                progress["new"] = found
+    return {"method": "images", "new": found, "message": "" if found else f"No feature images found on the {len(rows)} pages checked."}
