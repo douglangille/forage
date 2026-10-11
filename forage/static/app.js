@@ -119,6 +119,7 @@ function renderList(append) {
   $("#list-title").textContent = scopeTitle();
   $("#btn-filter").classList.toggle("on", S.unreadOnly);
   $("#btn-filter").hidden = S.scope.type === "starred";
+  $("#btn-editfeed").hidden = S.scope.type !== "feed";
   const ul = $("#entries");
   const keepTop = ul.scrollTop;
   ul.innerHTML = S.entries.map(rowHtml).join("");
@@ -294,6 +295,41 @@ function renderManage() {
   }
   $("#manage-list").innerHTML = h || "<li>No feeds yet.</li>";
 }
+
+/* ---------- edit one feed ---------- */
+function currentFeed() { return S.scope.type === "feed" ? S.feeds.find((f) => f.id === S.scope.id) : null; }
+$("#btn-editfeed").onclick = () => {
+  const f = currentFeed(); if (!f) return;
+  $("#feed-title").value = f.title || ""; $("#feed-title").placeholder = f.url;
+  $("#feed-folder").innerHTML = folderOptions(f.folder);
+  $("#feed-folder-new").hidden = true; $("#feed-folder-new").value = "";
+  const u = $("#feed-url"); u.classList.toggle("bad", !!f.error);
+  u.textContent = f.error ? `${f.url}\nLast fetch failed: ${f.error}` : f.url; u.style.whiteSpace = "pre-line";
+  $("#feed-msg").textContent = "";
+  $("#dlg-feed").showModal();
+};
+$("#feed-folder").addEventListener("change", (e) => { const n = $("#feed-folder-new"); n.hidden = e.target.value !== "__new__"; if (!n.hidden) n.focus(); });
+$("#feed-cancel").onclick = () => $("#dlg-feed").close();
+$("#form-feed").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const f = currentFeed(); if (!f) return;
+  const folder = folderPick($("#feed-folder"), $("#feed-folder-new"));
+  if ($("#feed-folder").value === "__new__" && !folder) { $("#feed-msg").textContent = "Name the new folder"; return; }
+  const b = $("#feed-save"); b.disabled = true;
+  try {
+    await api("/feeds/" + f.id, { method: "PATCH", body: { title: $("#feed-title").value, folder } });
+    await loadFeeds(); renderList(); $("#dlg-feed").close(); toast("Feed updated");
+  } catch (e) { $("#feed-msg").textContent = e.message; }
+  b.disabled = false;
+});
+$("#feed-remove").onclick = async () => {
+  const f = currentFeed(); if (!f) return;
+  if (!confirm(`Remove "${f.title || f.url}" and its articles? Anything you saved to Obsidian stays.`)) return;
+  try {
+    await api("/feeds/" + f.id, { method: "DELETE" });
+    $("#dlg-feed").close(); S.scope = { type: "all" }; await loadFeeds(); await loadEntries(); toast("Feed removed");
+  } catch (e) { $("#feed-msg").textContent = e.message; }
+};
 
 /* ---------- settings ---------- */
 function fillSettings(st) {

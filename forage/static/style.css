@@ -208,3 +208,10 @@ dialog input[type=text], dialog select { display: block; width: 100%; margin-top
 #dlg-settings .inline { display: inline-flex; align-items: center; gap: 8px; margin-top: 4px; color: var(--ink); }
 #dlg-settings input[type=number] { width: 84px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg); font-size: 16px; }
 .hint.bad { color: var(--love); }
+
+#dlg-feed .hint { color: var(--muted); font-size: 12px; margin: 0 0 10px; overflow-wrap: anywhere; }
+#dlg-feed .hint.bad { color: var(--love); }
+#dlg-feed #feed-folder-new { margin: -4px 0 10px; }
+#dlg-feed .row.between { justify-content: flex-start; }
+#dlg-feed .grow { flex: 1; }
+#dlg-feed button.danger { background: none; border: 0; color: var(--love); padding: 6px 4px; }

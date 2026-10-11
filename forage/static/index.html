@@ -34,6 +34,7 @@
     <header class="pane-head">
       <button id="btn-menu" class="icon only-narrow" aria-label="Feeds">☰</button>
       <h2 id="list-title">Unread</h2>
+      <button id="btn-editfeed" class="icon" title="Edit this feed" aria-label="Edit this feed" hidden>✎</button>
       <div class="spacer"></div>
       <button id="btn-filter" class="chip" title="Toggle unread only (u)">Unread</button>
       <button id="btn-markall" class="icon" title="Mark all read" aria-label="Mark all read">✓✓</button>
@@ -92,6 +93,18 @@
   </div>
   <ul id="manage-list"></ul>
   <div class="row"><button class="primary" id="manage-close">Done</button></div>
+</dialog>
+
+<dialog id="dlg-feed">
+  <form id="form-feed" method="dialog">
+    <h3>Edit feed</h3>
+    <label>Name <input id="feed-title" type="text" autocapitalize="words"></label>
+    <label>Folder <select id="feed-folder"></select></label>
+    <input id="feed-folder-new" type="text" placeholder="New folder name" autocapitalize="words" hidden>
+    <p id="feed-url" class="hint"></p>
+    <p id="feed-msg" class="msg"></p>
+    <div class="row between"><button type="button" class="danger" id="feed-remove">Remove feed</button><span class="grow"></span><button type="button" class="linkish" id="feed-cancel">Cancel</button><button class="primary" id="feed-save">Save</button></div>
+  </form>
 </dialog>
 
 <dialog id="dlg-settings">
