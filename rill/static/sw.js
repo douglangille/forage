@@ -1,6 +1,6 @@
 // App shell cache + stale-while-revalidate for read-only API calls, so recent articles open offline.
-const SHELL = "rill-shell-v1";
-const API = "rill-api-v1";
+const SHELL = "rill-shell-v2";
+const API = "rill-api-v2";
 const ASSETS = ["/", "/static/style.css", "/static/app.js", "/static/manifest.webmanifest", "/static/icons/icon.svg"];
 
 self.addEventListener("install", (e) => {

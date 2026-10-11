@@ -163,18 +163,18 @@ function bump(feedId, d) {
   if (f) { f.unread = Math.max(0, f.unread + d); renderNav(); }
 }
 
-function setSaveBtn(saved) {
-  const b = $("#btn-save");
-  b.disabled = false;
-  b.classList.toggle("done", saved);
-  b.textContent = saved ? "Saved ✓" : "Save to Obsidian";
+function setSaveBtn(saved, busy = false) {
+  document.querySelectorAll(".save-btn").forEach((b) => {
+    b.disabled = busy;
+    b.classList.toggle("done", saved);
+    b.textContent = busy ? "Saving…" : saved ? "Saved ✓" : "Save to Obsidian";
+  });
 }
 
 async function save() {
   if (!S.cur) return;
-  const b = $("#btn-save");
-  if (b.classList.contains("done")) { toast("Already in your inbox"); return; }
-  b.disabled = true; b.textContent = "Saving…";
+  if ($("#btn-save").classList.contains("done")) { toast("Already in your inbox"); return; }
+  setSaveBtn(false, true);
   try {
     const r = await api(`/entries/${S.cur}/save`, { method: "POST" });
     setSaveBtn(true);
@@ -254,7 +254,7 @@ $("#btn-menu").onclick = () => setMenu(true);
 $("#scrim").onclick = () => setMenu(false);
 $("#btn-back").onclick = () => { if (location.hash.startsWith("#e")) history.back(); else setView("list"); };
 $("#btn-refresh").onclick = refreshAll;
-$("#btn-save").onclick = save;
+document.querySelectorAll(".save-btn").forEach((b) => (b.onclick = save));
 $("#btn-star").onclick = toggleStar;
 $("#btn-unread").onclick = markUnread;
 $("#btn-prev").onclick = () => step(-1);
