@@ -194,3 +194,9 @@ dialog input[type=text], dialog select { display: block; width: 100%; margin-top
 #nav > .nav-item { margin-left: 26px; width: calc(100% - 26px); }
 #nav > .nav-item.nav-feed { margin-left: 40px; width: calc(100% - 40px); }
 .nav-fold .caret { width: 26px; }
+
+/* Installed app: iOS draws a blur over the status-bar strip and its fade bleeds a few pixels
+   into the first row, so push content down a little past the safe area. */
+@media (display-mode: standalone) {
+  :root { --sat: calc(env(safe-area-inset-top, 0px) + 8px); }
+}
