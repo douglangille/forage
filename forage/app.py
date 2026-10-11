@@ -10,7 +10,7 @@ from fastapi import Body, FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import backfill, clip, db, extract, feeds, opml, search
+from . import backfill, clip, db, extract, feeds, opml, search, thumbs
 from .config import Config, load
 
 STATIC = Path(__file__).parent / "static"
@@ -287,7 +287,20 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         rows = [dict(r) for r in conn.execute(sql, (*args, limit)).fetchall()]
         for r in rows:  # rows stored before entities were decoded at ingest
             r["title"], r["summary"] = html.unescape(r["title"]), html.unescape(r["summary"])
+            if r["image"]:  # the hash busts the browser's long-lived cache when the entry's image changes
+                r["thumb"] = f"/thumb/{r['id']}?v={thumbs.key(r['image'])[:10]}"
         return rows
+
+    @app.get("/thumb/{eid}")
+    async def thumb(eid: int):
+        row = conn.execute("SELECT image FROM entries WHERE id=?", (eid,)).fetchone()
+        if not row or not row["image"]:
+            raise HTTPException(404, "no image")
+        async with feeds.client(cfg) as http:
+            path = await thumbs.get(http, cfg.data_dir / "thumbs", row["image"])
+        if not path:
+            raise HTTPException(404, "no usable image")
+        return FileResponse(path, media_type="image/webp", headers={"Cache-Control": "public, max-age=31536000, immutable"})
 
     def _entry(eid: int) -> sqlite3.Row:
         row = conn.execute(

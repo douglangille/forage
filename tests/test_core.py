@@ -333,3 +333,32 @@ def test_fill_images_replaces_body_image(tmp_path, monkeypatch):
     c.post(f"/api/feeds/{fid}/images")  # already checked: nothing left to look at
     time.sleep(0.3)
     assert c.get(f"/api/feeds/{fid}/images").json()["new"] == 0
+
+
+def test_thumbnail_is_small_webp_and_cached(tmp_path, monkeypatch):
+    import io, time
+    import httpx
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGB", (800, 500), (200, 50, 50)).save(buf, "PNG")
+    hits = []
+    feed = _rss(("a", "A", "Wed, 08 Oct 2026 10:00:00 GMT")).replace(
+        b"<description>s</description>", b'<description>&lt;img src="https://ex.test/big.png"&gt;</description>')
+
+    def handler(req: httpx.Request):
+        if req.url.path == "/feed":
+            return httpx.Response(200, content=feed)
+        hits.append(req.url.path)
+        return httpx.Response(200, content=buf.getvalue(), headers={"content-type": "image/png"})
+
+    c = _backfill_client(tmp_path, monkeypatch, handler)
+    c.post("/api/opml", content=b'<opml><body><outline type="rss" text="T" xmlUrl="https://ex.test/feed"/></body></opml>')
+    time.sleep(0.3)
+    e = c.get("/api/entries").json()[0]
+    assert e["thumb"].startswith(f"/thumb/{e['id']}?v=")
+    r = c.get(e["thumb"])
+    assert r.headers["content-type"] == "image/webp" and "immutable" in r.headers["cache-control"]
+    assert Image.open(io.BytesIO(r.content)).size == (112, 112) and len(r.content) < len(buf.getvalue())
+    c.get(e["thumb"])
+    assert hits == ["/big.png"]  # second request served from disk

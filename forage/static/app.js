@@ -122,8 +122,12 @@ function renderList(append) {
   $("#btn-editfeed").hidden = S.scope.type !== "feed";
   const ul = $("#entries");
   const keepTop = ul.scrollTop;
-  ul.innerHTML = S.entries.map(rowHtml).join("");
-  if (append) ul.scrollTop = keepTop;
+  if (append && ul.children.length && ul.children.length <= S.entries.length) {
+    ul.insertAdjacentHTML("beforeend", S.entries.slice(ul.children.length).map(rowHtml).join(""));  // only the new rows
+  } else {
+    ul.innerHTML = S.entries.map(rowHtml).join("");
+    if (append) ul.scrollTop = keepTop;
+  }
   $("#list-empty").hidden = S.entries.length > 0;
   $("#list-empty").textContent = S.feeds.length ? "Nothing here. Go outside." : "No feeds yet. Add one, or import an OPML file from Manage.";
 }
@@ -134,7 +138,7 @@ function rowHtml(e) {
     <div class="txt"><div class="ttl">${esc(e.title)}</div>
       <div class="sub ${e.saved_path ? "saved" : ""}">${esc(e.feed_title)} · ${ago(e.published)}</div>
       ${e.summary ? `<div class="snip">${esc(e.summary.slice(0, 160))}</div>` : ""}</div>
-    ${e.image ? `<img class="thumb" loading="lazy" src="${esc(e.image)}" alt="" onerror="this.remove()">` : ""}</li>`;
+    ${e.thumb ? `<img class="thumb" loading="lazy" decoding="async" width="56" height="56" src="${esc(e.thumb)}" alt="" onerror="this.remove()">` : ""}</li>`;
 }
 
 function patchRow(e) {

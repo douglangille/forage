@@ -15,10 +15,11 @@ dependencies = [
   "trafilatura",
   "markdownify",
   "nh3",
+  "pillow",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "pillow"]
+dev = ["pytest"]
 
 [tool.setuptools.packages.find]
 include = ["forage*"]

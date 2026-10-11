@@ -89,7 +89,7 @@ a { color: var(--accent); }
 .searchbar { padding: 0 12px 8px; }
 .searchbar input { width: 100%; border: 1px solid var(--line); background: var(--bg); border-radius: 9px; padding: 7px 10px; }
 #entries { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; -webkit-overflow-scrolling: touch; padding-bottom: var(--sab); }
-#entries li { display: flex; gap: 10px; padding: 11px 14px; border-top: 1px solid var(--line); cursor: pointer; }
+#entries li { content-visibility: auto; contain-intrinsic-size: auto 84px; display: flex; gap: 10px; padding: 11px 14px; border-top: 1px solid var(--line); cursor: pointer; }
 #entries li:hover { background: var(--hover); }
 #entries li.sel { background: var(--sel); }
 #entries .dot { flex: none; width: 8px; height: 8px; margin-top: 6px; border-radius: 50%; background: transparent; }
