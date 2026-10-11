@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rill</title>
+<meta name="theme-color" content="#f6f4ef" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#16171a" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Rill">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="/static/manifest.webmanifest">
+<link rel="icon" href="/static/icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div id="app" data-view="list">
+  <aside id="side">
+    <header class="side-head">
+      <h1>Rill</h1>
+      <button id="btn-refresh" class="icon" title="Refresh all (r)" aria-label="Refresh">⟳</button>
+    </header>
+    <nav id="nav"></nav>
+    <footer class="side-foot">
+      <button id="btn-add" class="linkish">+ Add feed</button>
+      <button id="btn-manage" class="linkish">Manage</button>
+    </footer>
+  </aside>
+
+  <section id="list-pane">
+    <header class="pane-head">
+      <button id="btn-menu" class="icon only-narrow" aria-label="Feeds">☰</button>
+      <h2 id="list-title">Unread</h2>
+      <div class="spacer"></div>
+      <button id="btn-filter" class="chip" title="Toggle unread only (u)">Unread</button>
+      <button id="btn-markall" class="icon" title="Mark all read" aria-label="Mark all read">✓✓</button>
+    </header>
+    <div class="searchbar"><input id="q" type="search" placeholder="Search titles…" autocomplete="off"></div>
+    <ul id="entries"></ul>
+    <div id="list-empty" hidden>Nothing here. Go outside.</div>
+  </section>
+
+  <main id="reader">
+    <div id="reader-empty">Pick something to read.</div>
+    <article id="article" hidden>
+      <header class="art-head">
+        <button id="btn-back" class="icon only-narrow" aria-label="Back">‹</button>
+        <div class="spacer"></div>
+        <button id="btn-prev" class="icon" title="Previous (k)" aria-label="Previous">↑</button>
+        <button id="btn-next" class="icon" title="Next (j)" aria-label="Next">↓</button>
+        <button id="btn-star" class="icon" title="Star" aria-label="Star">☆</button>
+        <button id="btn-unread" class="icon" title="Mark unread (m)" aria-label="Mark unread">●</button>
+        <a id="btn-open" class="icon" target="_blank" rel="noopener" title="Open original (o)" aria-label="Open original">↗</a>
+        <button id="btn-save" class="primary" title="Save to Obsidian inbox (s)">Save to Obsidian</button>
+      </header>
+      <div class="art-scroll" id="art-scroll">
+        <div class="art-body">
+          <p class="meta" id="art-meta"></p>
+          <h1 id="art-title"></h1>
+          <div id="art-content" class="prose"></div>
+        </div>
+      </div>
+    </article>
+  </main>
+  <div id="scrim"></div>
+</div>
+
+<dialog id="dlg-add">
+  <form method="dialog" id="form-add">
+    <h3>Add feed</h3>
+    <label>Site or feed URL <input id="add-url" type="text" inputmode="url" autocapitalize="off" autocorrect="off" required placeholder="https://example.com"></label>
+    <label>Folder (optional) <input id="add-folder" type="text" list="folders" autocapitalize="words"></label>
+    <datalist id="folders"></datalist>
+    <p id="add-msg" class="msg"></p>
+    <div class="row"><button type="button" class="linkish" id="add-cancel">Cancel</button><button class="primary" id="add-go">Add</button></div>
+  </form>
+</dialog>
+
+<dialog id="dlg-manage">
+  <h3>Manage feeds</h3>
+  <div class="row wrap">
+    <label class="btn linkish">Import OPML<input type="file" id="opml-file" accept=".opml,.xml,text/xml" hidden></label>
+    <a class="btn linkish" href="/api/opml" download="rill.opml">Export OPML</a>
+  </div>
+  <ul id="manage-list"></ul>
+  <div class="row"><button class="primary" id="manage-close">Done</button></div>
+</dialog>
+
+<div id="toast" role="status" aria-live="polite"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>
