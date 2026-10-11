@@ -163,11 +163,14 @@ function bump(feedId, d) {
   if (f) { f.unread = Math.max(0, f.unread + d); renderNav(); }
 }
 
+const ICON_SAVE = '<svg viewBox="0 0 24 24"><path d="M3 13h5l1.5 3h5L16 13h5"/><path d="M5.5 5h13L21 13v6H3v-6z"/><path d="M12 3v7m-3-3 3 3 3-3"/></svg>';
+const ICON_DONE = '<svg viewBox="0 0 24 24"><path d="M3 13h5l1.5 3h5L16 13h5"/><path d="M5.5 5h13L21 13v6H3v-6z"/><path d="m9 9 2.2 2.2L15.5 7"/></svg>';
 function setSaveBtn(saved, busy = false) {
   document.querySelectorAll(".save-btn").forEach((b) => {
     b.disabled = busy;
     b.classList.toggle("done", saved);
-    b.textContent = busy ? "Saving…" : saved ? "Saved ✓" : "Save to Obsidian";
+    b.innerHTML = saved ? ICON_DONE : ICON_SAVE;
+    b.title = saved ? "Saved to inbox" : "Save to Obsidian inbox (s)";
   });
 }
 
@@ -326,6 +329,8 @@ addEventListener("keydown", (e) => {
 document.addEventListener("visibilitychange", () => { if (!document.hidden) loadFeeds().catch(() => {}); });
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+
+setSaveBtn(false);
 
 (async function init() {
   await loadFeeds();
