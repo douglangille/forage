@@ -10,7 +10,7 @@
 @font-face { font-family: "Source Sans 3"; src: url(/static/fonts/SourceSans3-Bold.woff2) format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
 @font-face { font-family: "JetBrainsMono Nerd Font Mono"; src: url(/static/fonts/JetBrainsMonoNerd-Regular.woff2) format("woff2"); font-weight: 400; font-display: swap; }
 @font-face { font-family: "JetBrainsMono Nerd Font Mono"; src: url(/static/fonts/JetBrainsMonoNerd-Bold.woff2) format("woff2"); font-weight: 700; font-display: swap; }
-/* Rosé Pine (dark) / Rosé Pine Dawn (light): same palette and roles as forge's
+/* Rosé Pine (dark) / Rosé Pine Dawn (light): same palette roles as the Rosé Pine Obsidian snippets this was matched to
    rose-pine-chrome.css and rose-pine-editor.css. Dawn's iris is darkened to #82699e
    for text-sized accents (the snippet's own contrast note). */
 :root {

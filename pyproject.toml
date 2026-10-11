@@ -3,6 +3,10 @@ name = "forage"
 version = "0.1.0"
 description = "Self-hosted RSS reader with one-tap save to an Obsidian inbox"
 requires-python = ">=3.12"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Doug Langille" }]
+keywords = ["rss", "reader", "obsidian", "pwa", "self-hosted"]
 dependencies = [
   "fastapi",
   "uvicorn[standard]",
