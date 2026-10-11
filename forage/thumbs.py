@@ -18,8 +18,22 @@ def key(image_url: str) -> str:
     return hashlib.sha1(image_url.encode()).hexdigest()
 
 
+MAX_PIXELS = 30_000_000  # decoded size, not file size: a small PNG can expand to hundreds of MB
+
+
+def prune(cache: Path, max_age: float = 7 * 86400) -> None:
+    """Drop stale failure markers and half-written files; finished thumbnails are kept."""
+    if not cache.is_dir():
+        return
+    for f in cache.iterdir():
+        if f.suffix in (".bad", ".tmp") and time.time() - f.stat().st_mtime > max_age:
+            f.unlink(missing_ok=True)
+
+
 def _shrink(data: bytes) -> bytes:
     im = Image.open(io.BytesIO(data))
+    if im.width * im.height > MAX_PIXELS:
+        raise ValueError("image too large to decode")
     im = ImageOps.exif_transpose(im)
     im = ImageOps.fit(im.convert("RGBA" if "A" in im.getbands() or im.mode == "P" else "RGB"), (SIZE, SIZE))
     out = io.BytesIO()
@@ -44,12 +58,12 @@ async def get(http: httpx.AsyncClient, cache: Path, image_url: str) -> Path | No
                 r.raise_for_status()
                 if "image" not in r.headers.get("content-type", "image") or "svg" in r.headers.get("content-type", ""):
                     raise ValueError("not a raster image")
-                data = b""
+                data = bytearray()
                 async for chunk in r.aiter_bytes():
                     data += chunk
                     if len(data) > MAX_BYTES:
                         raise ValueError("too large")
-            webp = await asyncio.to_thread(_shrink, data)
+            webp = await asyncio.to_thread(_shrink, bytes(data))
         except Exception:
             bad.touch()
             return None

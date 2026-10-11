@@ -102,17 +102,20 @@ function query(before) {
   return "/entries?" + p;
 }
 
+let loadTok = 0;
 async function loadEntries(append = false) {
-  if (S.loadingMore) return;
-  S.loadingMore = true;
+  if (append && S.loadingMore) return;
+  const tok = append ? loadTok : ++loadTok;  // a fresh load supersedes anything still in flight
+  if (append) S.loadingMore = true;
   try {
     const last = S.entries[S.entries.length - 1];
     const rows = await api(query(append && last ? `${last.published}|${last.id}` : ""));
+    if (tok !== loadTok) return;
     S.entries = append ? S.entries.concat(rows) : rows;
     S.done = rows.length < 50;
     renderList(append);
-  } catch (e) { toast("Couldn't load: " + e.message); }
-  S.loadingMore = false;
+  } catch (e) { if (tok === loadTok) toast("Couldn't load: " + e.message); }
+  finally { if (append) S.loadingMore = false; }
 }
 
 function renderList(append) {
@@ -133,7 +136,7 @@ function renderList(append) {
 }
 
 function rowHtml(e) {
-  return `<li data-id="${e.id}" class="${e.is_read ? "" : "unread"} ${S.cur === e.id ? "sel" : ""}">
+  return `<li data-id="${e.id}" tabindex="0" role="button" class="${e.is_read ? "" : "unread"} ${S.cur === e.id ? "sel" : ""}">
     <span class="dot"></span>
     <div class="txt"><div class="ttl">${esc(e.title)}</div>
       <div class="sub ${e.saved_path ? "saved" : ""}">${esc(e.feed_title)} · ${ago(e.published)}</div>
@@ -167,7 +170,8 @@ async function openEntry(id, { fromList = true } = {}) {
     $("#art-meta").textContent = [a.feed_title, a.author, new Date(a.published).toLocaleDateString(undefined, { dateStyle: "medium" })].filter(Boolean).join(" · ");
     $("#art-content").innerHTML = a.html;
     $("#art-content").querySelectorAll("a").forEach((l) => (l.target = "_blank"));
-    $("#btn-open").href = a.url;
+    $("#btn-open").hidden = !a.url;
+    if (a.url) $("#btn-open").href = a.url;
     setSaveBtn(!!a.saved_path);
     $("#btn-star").textContent = a.starred ? "★" : "☆";
     $("#btn-star").classList.toggle("on", !!a.starred);
@@ -197,7 +201,8 @@ function setSaveBtn(saved, busy = false) {
 
 async function save() {
   if (!S.cur) return;
-  if ($("#btn-save").classList.contains("done")) return;
+  if ($("#btn-save").classList.contains("done") || S.saving) return;
+  S.saving = true;
   setSaveBtn(false, true);
   try {
     const r = await api(`/entries/${S.cur}/save`, { method: "POST" });
@@ -205,12 +210,14 @@ async function save() {
     const e = S.entries.find((x) => x.id === S.cur);
     if (e) { e.saved_path = r.path; patchRow(e); }
   } catch (err) { setSaveBtn(false); toast("Save failed: " + err.message); }
+  S.saving = false;
 }
 
 async function toggleStar() {
   if (!S.art) return;
   const v = !S.art.starred;
-  await api(`/entries/${S.cur}/state`, { method: "POST", body: { starred: v } });
+  try { await api(`/entries/${S.cur}/state`, { method: "POST", body: { starred: v } }); }
+  catch (err) { return toast("Couldn't update: " + err.message); }
   S.art.starred = v ? 1 : 0;
   const e = S.entries.find((x) => x.id === S.cur);
   if (e) { e.starred = S.art.starred; }
@@ -230,7 +237,8 @@ async function toggleRead() {
   const e = S.entries.find((x) => x.id === S.cur);
   if (!e) return;
   const nowRead = !e.is_read;
-  await api(`/entries/${S.cur}/state`, { method: "POST", body: { read: nowRead } });
+  try { await api(`/entries/${S.cur}/state`, { method: "POST", body: { read: nowRead } }); }
+  catch (err) { return toast("Couldn't update: " + err.message); }
   e.is_read = nowRead ? 1 : 0;
   if (S.art) S.art.is_read = e.is_read;
   patchRow(e); bump(e.feed_id, nowRead ? -1 : 1); setReadBtn(nowRead);
@@ -268,7 +276,7 @@ async function refreshAll() {
     const r = await api("/refresh", { method: "POST" });
     await loadFeeds();
     await loadEntries();
-    toast(r.new ? `${r.new} new` : "Nothing new");
+    toast(r.busy ? "Already checking…" : r.new ? `${r.new} new` : "Nothing new");
   } catch (e) { toast("Refresh failed: " + e.message); }
   b.disabled = false;
 }
@@ -369,6 +377,7 @@ function fillSettings(st) {
   $("#set-git-note").textContent = st.git_root
     ? `Git checkout: ${st.git_root}.${st.sync_script ? " Pushing through the server's sync script." : " Pushes with plain git."}`
     : "That folder isn't inside a git checkout, so there's nothing to commit to.";
+  if (st.publish_error) $("#set-git-note").textContent += ` The last push failed (${st.publish_error}); the clip is saved but not yet pushed.`;
 }
 $("#btn-settings").onclick = async () => {
   setMenu(false); $("#set-msg").textContent = "";
@@ -396,6 +405,10 @@ $("#nav").addEventListener("click", (e) => {
   if (b) setScope(JSON.parse(b.dataset.scope));
 });
 $("#entries").addEventListener("click", (e) => { const li = e.target.closest("li[data-id]"); if (li) openEntry(+li.dataset.id); });
+$("#entries").addEventListener("keydown", (e) => {
+  if (e.key !== "Enter" && e.key !== " ") return;
+  const li = e.target.closest("li[data-id]"); if (li) { e.preventDefault(); openEntry(+li.dataset.id); }
+});
 $("#entries").addEventListener("scroll", (e) => {
   const el = e.target;
   if (!S.done && el.scrollTop + el.clientHeight > el.scrollHeight - 400) loadEntries(true);
@@ -416,15 +429,19 @@ $("#btn-filter").onclick = () => {
 };
 $("#btn-markall").onclick = async () => {
   const sc = S.scope;
+  if (sc.type === "starred") return toast("Mark all read doesn't apply to Starred");
+  if (S.q) return toast("Clear the search first: this marks the whole view, not just the matches");
   if (!confirm(`Mark everything in "${scopeTitle()}" as read?`)) return;
   const body = {};
   if (sc.type === "feed") body.feed = sc.id;
   if (sc.type === "folder") body.folder = sc.name;
   const newest = S.entries[0]?.published;
   if (newest) body.older_than = newest;
-  const r = await api("/mark-read", { method: "POST", body });
-  toast(`${r.marked} marked read`);
-  await loadFeeds(); await loadEntries();
+  try {
+    const r = await api("/mark-read", { method: "POST", body });
+    toast(`${r.marked} marked read`);
+    await loadFeeds(); await loadEntries();
+  } catch (err) { toast("Couldn't mark read: " + err.message); }
 };
 let qTimer;
 $("#q").addEventListener("input", (e) => { clearTimeout(qTimer); qTimer = setTimeout(() => { S.q = e.target.value.trim(); loadEntries(); }, 250); });

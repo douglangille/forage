@@ -1,8 +1,9 @@
 // App shell cache + stale-while-revalidate for read-only API calls, so recent articles open offline.
-const SHELL = "forage-shell-v23";
-const API = "forage-api-v23";
+const SHELL = "forage-shell-v24";
+const API = "forage-api-v24";
 const THUMBS = "forage-thumbs";  // unversioned: thumbnails are immutable per URL, so they survive shell upgrades
 const THUMBS_MAX = 2000;
+const API_MAX = 300;  // cached API responses kept, oldest out
 const ASSETS = ["/", "/static/style.css", "/static/app.js", "/static/manifest.webmanifest", "/static/icons/icon.svg",
   "/static/fonts/Libron-Regular.woff2", "/static/fonts/Libron-Italic.woff2", "/static/fonts/Libron-Bold.woff2", "/static/fonts/Libron-BoldItalic.woff2",
   "/static/fonts/SourceSans3-Regular.woff2", "/static/fonts/SourceSans3-Semibold.woff2", "/static/fonts/SourceSans3-Bold.woff2", "/static/fonts/SourceSans3-It.woff2",
@@ -39,9 +40,16 @@ self.addEventListener("fetch", (e) => {
   if (url.pathname.startsWith("/api/") && !url.pathname.startsWith("/api/opml")) {
     e.respondWith(
       fetch(req).then((res) => {
-        if (res.ok) { const copy = res.clone(); caches.open(API).then((c) => c.put(req, copy)); }
+        if (res.ok && !/^\/api\/(settings|find)/.test(url.pathname)) {
+          const copy = res.clone();
+          caches.open(API).then(async (c) => {
+            await c.put(req, copy);
+            const ks = await c.keys();
+            ks.slice(0, Math.max(0, ks.length - API_MAX)).forEach((k) => c.delete(k));
+          });
+        }
         return res;
-      }).catch(() => caches.match(req).then((r) => r || new Response("[]", { status: 503, headers: { "content-type": "application/json" } })))
+      }).catch(() => caches.match(req).then((r) => r || new Response('{"detail":"Offline, and this isn\'t saved on the device"}', { status: 503, headers: { "content-type": "application/json" } })))
     );
     return;
   }

@@ -37,9 +37,12 @@ CREATE INDEX IF NOT EXISTS entries_feed ON entries(feed_id, is_read);
 
 def connect(path: Path) -> sqlite3.Connection:
     path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(path, check_same_thread=False, timeout=30)
+    # One connection is shared by the request threads and the background tasks. Autocommit (isolation_level=None)
+    # makes every statement its own transaction, so one thread's commit can't sweep up another's half-done batch.
+    conn = sqlite3.connect(path, check_same_thread=False, timeout=30, isolation_level=None)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
     conn.execute("PRAGMA foreign_keys=ON")
     conn.executescript(SCHEMA)
     if "img_checked" not in {r["name"] for r in conn.execute("PRAGMA table_info(entries)")}:

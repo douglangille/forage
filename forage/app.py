@@ -2,7 +2,9 @@ import asyncio
 import base64
 import html
 import os
+import re
 import sqlite3
+import time
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
@@ -22,6 +24,22 @@ def create_app(cfg: Config | None = None) -> FastAPI:
     cfg = cfg or load()
     conn = db.connect(cfg.db_path)
     lock = asyncio.Lock()  # one refresh at a time
+    bg_tasks: set = set()  # asyncio keeps only weak references to tasks, so hold them until they finish
+    publish_lock = asyncio.Lock()  # one git commit/push at a time in the checkout
+    save_locks: dict[int, asyncio.Lock] = {}  # per entry, so a double save can't write two files
+    fetch_failed: dict[int, float] = {}  # entry id -> when its page fetch last failed (not cached as the article)
+    publish_state = {"error": ""}
+    thumbs.prune(cfg.data_dir / "thumbs")
+
+    def spawn(coro):
+        task = asyncio.create_task(coro)
+        bg_tasks.add(task)
+        task.add_done_callback(bg_tasks.discard)
+        return task
+
+    def http_only(url: str) -> str:
+        """Feed links are untrusted: a javascript: or file: link must never reach an href or window.open."""
+        return url if re.match(r"^https?://", url or "", re.I) else ""
 
     # ---- settings: saved in the database, with the environment supplying defaults ----
     def setting(key: str, default: str) -> str:
@@ -49,9 +67,9 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             return cfg.git_root
         return clip.git_toplevel(inbox_dir())
 
-    async def refresh() -> int:
+    async def refresh() -> int | None:
         if lock.locked():
-            return 0
+            return None  # already running
         async with lock:
             return await feeds.refresh_all(conn, cfg)
 
@@ -60,8 +78,8 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             await asyncio.sleep(refresh_minutes() * 60)
             try:
                 await refresh()
-            except Exception:
-                pass
+            except Exception as exc:
+                print(f"forage: scheduled refresh failed: {exc!r}", flush=True)
 
     @asynccontextmanager
     async def lifespan(app):
@@ -113,6 +131,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             "sync_script": bool(cfg.sync_script),
             "wikilink_author": wikilink_author(),
             "refresh_minutes": refresh_minutes(),
+            "publish_error": publish_state["error"],
         }
 
     @app.get("/api/settings")
@@ -187,7 +206,6 @@ def create_app(cfg: Config | None = None) -> FastAPI:
 
     # ---- backfill: older articles than the feed itself carries, and missing feature images ----
     jobs: dict[tuple[int, str], dict] = {}
-    bg_tasks: set = set()
 
     def start_job(fid: int, kind: str, make):
         row = conn.execute("SELECT * FROM feeds WHERE id=?", (fid,)).fetchone()
@@ -203,9 +221,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             except Exception as exc:
                 st.update(state="error", message=str(exc)[:200])
 
-        task = asyncio.create_task(work())
-        bg_tasks.add(task)
-        task.add_done_callback(bg_tasks.discard)
+        spawn(work())
         return st
 
     @app.post("/api/feeds/{fid}/backfill")
@@ -236,7 +252,8 @@ def create_app(cfg: Config | None = None) -> FastAPI:
 
     @app.post("/api/refresh")
     async def refresh_now():
-        return {"new": await refresh()}
+        n = await refresh()
+        return {"new": n or 0, "busy": n is None}
 
     @app.post("/api/opml")
     async def import_opml(request: Request):
@@ -251,7 +268,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
                 (it["url"], it["title"], it["folder"]),
             ).rowcount
         conn.commit()
-        asyncio.create_task(refresh())
+        spawn(refresh())
         return {"added": added, "total": len(items)}
 
     @app.get("/api/opml")
@@ -280,7 +297,11 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             where.append("(e.title LIKE ? OR e.summary LIKE ?)"); args += [f"%{q}%"] * 2
         if before:  # cursor: "published|id"
             pub, _, eid = before.partition("|")
-            where.append("(e.published < ? OR (e.published = ? AND e.id < ?))"); args += [pub, pub, int(eid or 0)]
+            try:
+                eid_n = int(eid or 0)
+            except ValueError:
+                raise HTTPException(400, "bad cursor")
+            where.append("(e.published < ? OR (e.published = ? AND e.id < ?))"); args += [pub, pub, eid_n]
         sql = f"SELECT {ENTRY_COLS} FROM entries e JOIN feeds f ON f.id=e.feed_id"
         if where:
             sql += " WHERE " + " AND ".join(where)
@@ -288,6 +309,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         rows = [dict(r) for r in conn.execute(sql, (*args, limit)).fetchall()]
         for r in rows:  # rows stored before entities were decoded at ingest
             r["title"], r["summary"] = html.unescape(r["title"]), html.unescape(r["summary"])
+            r["url"] = http_only(r["url"])
             if r["image"]:  # the hash busts the browser's long-lived cache when the entry's image changes
                 r["thumb"] = f"/thumb/{r['id']}?v={thumbs.key(r['image'])[:10]}"
         return rows
@@ -312,31 +334,37 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         return row
 
     async def _article_html(row: sqlite3.Row) -> str:
-        """Best readable body: cached extraction, else feed content if it's full, else fetch the page."""
+        """Best readable body: cached extraction, else feed content if it's full, else fetch the page.
+        A failed fetch is never cached as the article, or one timeout would leave the summary there for good."""
         if row["full_html"]:
             return row["full_html"]
         if row["feed_html"] and extract.looks_full(row["feed_html"], row["summary"]):
             return row["feed_html"]
-        html = None
-        if row["url"]:
+        fetched = None
+        if row["url"] and time.time() - fetch_failed.get(row["id"], 0) > 300:
             try:
                 async with feeds.client(cfg) as http:
-                    html = await feeds.fetch_article(http, row["url"])
+                    fetched = await feeds.fetch_article(http, row["url"])
             except Exception:
-                html = None
-        html = extract.strip_leading_title(html or row["feed_html"] or f"<p>{row['summary']}</p>", row["title"])
-        conn.execute("UPDATE entries SET full_html=? WHERE id=?", (html, row["id"]))
-        conn.commit()
-        return html
+                fetched = None
+            if not fetched:
+                fetch_failed[row["id"]] = time.time()
+        if fetched:
+            body = extract.strip_leading_title(fetched, row["title"])
+            conn.execute("UPDATE entries SET full_html=? WHERE id=?", (body, row["id"]))
+            conn.commit()
+            fetch_failed.pop(row["id"], None)
+            return body
+        return extract.strip_leading_title(row["feed_html"] or f"<p>{html.escape(row['summary'])}</p>", row["title"])
 
     @app.get("/api/entries/{eid}")
     async def get_entry(eid: int):
         row = _entry(eid)
-        html = await _article_html(row)
+        body = await _article_html(row)
         conn.execute("UPDATE entries SET is_read=1 WHERE id=?", (eid,))
         conn.commit()
         d = {k: row[k] for k in ("id", "feed_id", "url", "title", "author", "published", "starred", "saved_path", "feed_title")}
-        return d | {"html": html, "is_read": 1}
+        return d | {"html": body, "url": http_only(row["url"]), "is_read": 1}
 
     @app.post("/api/entries/{eid}/state")
     def set_state(eid: int, body: dict = Body(...)):
@@ -360,42 +388,51 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         conn.commit()
         return {"marked": n}
 
-    @app.post("/api/entries/{eid}/save")
-    async def save_entry(eid: int):
-        row = _entry(eid)
-        if row["saved_path"]:
-            return {"path": row["saved_path"], "already": True}
-        html = await _article_html(row)
-        path = clip.write(inbox_dir(), dict(row), html, wikilink_author())
-        conn.execute("UPDATE entries SET saved_path=?, is_read=1 WHERE id=?", (path.name, eid))
-        conn.commit()
-        root = git_root() if git_enabled() else None
-        if root:
-            asyncio.create_task(_publish(root, path, row["title"]))  # background: don't make the tap wait on a push
-        return {"path": path.name, "already": False}
-
     @app.get("/api/entries/{eid}/clip")
     async def entry_clip(eid: int):
         """The clip as text, for a client that writes it into the vault itself (the Obsidian plugin)."""
         row = _entry(eid)
-        text = clip.render(dict(row), await _article_html(row), wikilink_author(), datetime.now().strftime("%Y-%m-%d"))
-        return {"filename": clip.filename(row["title"]) + ".md", "markdown": text, "saved_path": row["saved_path"]}
+        body = await _article_html(row)
+        entry = dict(row) | {"url": http_only(row["url"])}
+        text = await asyncio.to_thread(clip.render, entry, body, wikilink_author(), datetime.now().strftime("%Y-%m-%d"))
+        meta = {k: row[k] for k in ("id", "feed_id", "title", "author", "published", "starred", "is_read", "feed_title")}
+        return meta | {"url": entry["url"], "filename": clip.filename(row["title"]) + ".md", "markdown": text, "saved_path": row["saved_path"]}
 
     @app.post("/api/entries/{eid}/saved")
     def mark_saved(eid: int, body: dict = Body(...)):
         """Record that a client wrote the clip itself, so the entry shows as saved."""
         _entry(eid)
         path = (body.get("path") or "").strip()
-        if not path:
-            raise HTTPException(400, "path required")
+        if not path or "/" in path or "\\" in path:
+            raise HTTPException(400, "a file name is required")
         conn.execute("UPDATE entries SET saved_path=?, is_read=1 WHERE id=?", (path, eid))
         conn.commit()
         return {"ok": True}
 
+    @app.post("/api/entries/{eid}/save")
+    async def save_entry(eid: int):
+        _entry(eid)
+        async with save_locks.setdefault(eid, asyncio.Lock()):
+            row = _entry(eid)  # re-read: a save that was waiting on the lock may already have won
+            if row["saved_path"]:
+                return {"path": row["saved_path"], "already": True}
+            body = await _article_html(row)
+            entry = dict(row) | {"url": http_only(row["url"])}
+            path = await asyncio.to_thread(clip.write, inbox_dir(), entry, body, wikilink_author())
+            conn.execute("UPDATE entries SET saved_path=?, is_read=1 WHERE id=?", (path.name, eid))
+            conn.commit()
+        save_locks.pop(eid, None)
+        root = git_root() if git_enabled() else None
+        if root:
+            spawn(_publish(root, path, row["title"]))  # background: don't make the tap wait on a push
+        return {"path": path.name, "already": False}
+
     async def _publish(root: Path, path: Path, title: str):
         # The sync hook is server-side only (env): letting the UI set a script would be remote code execution.
         script = cfg.sync_script if root == cfg.git_root else None
-        err = await asyncio.to_thread(clip.commit_and_push, root, path, title, script)
+        async with publish_lock:
+            err = await asyncio.to_thread(clip.commit_and_push, root, path, title, script)
+        publish_state["error"] = f"{path.name}: {err}" if err else ""
         if err:
             print(f"forage: git publish of {path.name} failed: {err}", flush=True)
 
@@ -415,6 +452,16 @@ def create_app(cfg: Config | None = None) -> FastAPI:
     @app.get("/sw.js")
     def sw():  # served from root so its scope covers the whole app
         return FileResponse(STATIC / "sw.js", media_type="text/javascript", headers={"Cache-Control": "no-cache"})
+
+    @app.middleware("http")
+    async def no_cross_site_writes(request: Request, call_next):
+        # No login, so a page open in another tab must not be able to fire a write at us. Browsers label every
+        # request with Sec-Fetch-Site; curl and the plugin send none, and the plugin may send X-Forage instead.
+        if (request.method not in ("GET", "HEAD", "OPTIONS")
+                and request.headers.get("sec-fetch-site", "same-origin") not in ("same-origin", "none")
+                and not request.headers.get("x-forage")):
+            return Response("cross-site write refused", status_code=403)
+        return await call_next(request)
 
     @app.middleware("http")
     async def revalidate_code(request: Request, call_next):

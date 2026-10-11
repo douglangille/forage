@@ -205,8 +205,8 @@ async def _sitemap(http, feed, first, seen, limit, progress):
             r = await http.get(loc)
             if r.status_code != 200 or "html" not in r.headers.get("content-type", "html"):
                 continue
-            body = extract.extract_article(r.text, str(r.url))
-            meta = trafilatura.extract_metadata(r.text, default_url=str(r.url))
+            body = await asyncio.to_thread(extract.extract_article, r.text, str(r.url))
+            meta = await asyncio.to_thread(trafilatura.extract_metadata, r.text, default_url=str(r.url))
         except Exception:
             continue
         when = _tm((meta.date if meta and meta.date else "") or lastmod)
@@ -270,7 +270,7 @@ async def fill_images(conn, cfg: Config, feed, progress: dict, limit: int = 100)
                 r = await http.get(row["url"])
                 if r.status_code != 200 or "html" not in r.headers.get("content-type", "html"):
                     continue
-                meta = trafilatura.extract_metadata(r.text, default_url=str(r.url))
+                meta = await asyncio.to_thread(trafilatura.extract_metadata, r.text, default_url=str(r.url))
             except Exception:
                 continue
             img = urljoin(str(r.url), meta.image) if meta and meta.image else ""

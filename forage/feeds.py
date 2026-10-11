@@ -1,7 +1,11 @@
 """Fetch, parse and discover feeds; store entries."""
+import asyncio
 import calendar
 import html
+import ipaddress
+import os
 import re
+import socket
 import sqlite3
 from datetime import datetime, timezone
 from urllib.parse import urljoin
@@ -16,8 +20,31 @@ from .config import Config
 FEED_TYPES = ("application/rss+xml", "application/atom+xml", "application/feed+json", "application/xml", "text/xml")
 
 
+_CGNAT = ipaddress.ip_network("100.64.0.0/10")  # Tailscale's range
+
+
+async def _no_private_hosts(request: httpx.Request) -> None:
+    """Feeds and pages are chosen by strangers, so refuse any hop that resolves to this machine or a private net.
+    Runs on every redirect too. FORAGE_ALLOW_PRIVATE=1 turns it off for a feed hosted on your own network."""
+    if os.environ.get("FORAGE_ALLOW_PRIVATE"):
+        return
+    try:
+        infos = await asyncio.get_running_loop().getaddrinfo(request.url.host, None, type=socket.SOCK_STREAM)
+    except OSError:
+        return  # unresolvable: the request itself will fail with a clearer error
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0].split("%")[0])
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_reserved or ip in _CGNAT:
+            raise httpx.RequestError(f"refusing to fetch a private address ({request.url.host})")
+
+
+def http_only(url: str) -> str:
+    return url if re.match(r"^https?://", url or "", re.I) else ""
+
+
 def client(cfg: Config) -> httpx.AsyncClient:
     return httpx.AsyncClient(
+        event_hooks={"request": [_no_private_hosts]},
         headers={"User-Agent": cfg.user_agent, "Accept": "*/*"},
         follow_redirects=True,
         timeout=httpx.Timeout(20.0),
@@ -57,7 +84,7 @@ def parse(body: bytes | str, feed_url: str):
 def _store_entries(conn: sqlite3.Connection, feed_id: int, parsed, base_url: str, read: bool = False) -> int:
     new = 0
     for e in parsed.entries:
-        link = e.get("link", "") or ""
+        link = http_only(e.get("link", "") or "")
         guid = e.get("id") or link or e.get("title", "")
         if not guid:
             continue
@@ -100,7 +127,7 @@ async def refresh_feed(conn: sqlite3.Connection, cfg: Config, http: httpx.AsyncC
         if parsed.bozo and not parsed.entries:
             raise ValueError(f"not a valid feed: {parsed.bozo_exception}")
         new = _store_entries(conn, feed["id"], parsed, feed["url"])
-        title = (parsed.feed.get("title") or feed["title"] or "").strip()
+        title = (feed["title"] or parsed.feed.get("title") or "").strip()  # a rename in the app must survive a refresh
         site = parsed.feed.get("link") or feed["site_url"]
         conn.execute(
             "UPDATE feeds SET title=?, site_url=?, etag=?, last_modified=?, last_fetch=?, error=NULL WHERE id=?",
@@ -162,4 +189,4 @@ async def fetch_article(http: httpx.AsyncClient, url: str) -> str | None:
     r.raise_for_status()
     if "html" not in r.headers.get("content-type", "html"):
         return None
-    return extract.extract_article(r.text, str(r.url))
+    return await asyncio.to_thread(extract.extract_article, r.text, str(r.url))
