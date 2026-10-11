@@ -153,6 +153,7 @@ async function openEntry(id, { fromList = true } = {}) {
     $("#btn-star").textContent = a.starred ? "★" : "☆";
     $("#btn-star").classList.toggle("on", !!a.starred);
     if (e) { const was = !e.is_read; e.is_read = 1; e.starred = a.starred; patchRow(e); if (was) bump(e.feed_id, -1); }
+    setReadBtn(true);
   } catch (err) {
     $("#art-content").innerHTML = `<p class="meta">Couldn't load this one: ${esc(err.message)}</p>`;
   }
@@ -163,14 +164,15 @@ function bump(feedId, d) {
   if (f) { f.unread = Math.max(0, f.unread + d); renderNav(); }
 }
 
-const ICON_SAVE = '<svg viewBox="0 0 24 24"><path d="M3 13h5l1.5 3h5L16 13h5"/><path d="M5.5 5h13L21 13v6H3v-6z"/><path d="M12 3v7m-3-3 3 3 3-3"/></svg>';
-const ICON_DONE = '<svg viewBox="0 0 24 24"><path d="M3 13h5l1.5 3h5L16 13h5"/><path d="M5.5 5h13L21 13v6H3v-6z"/><path d="m9 9 2.2 2.2L15.5 7"/></svg>';
+const ICON_SAVE = '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3.5"/></svg>';
+const ICON_DONE = '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3.5"/><path d="m8.5 12.3 2.4 2.4 4.6-5"/></svg>';
 function setSaveBtn(saved, busy = false) {
   document.querySelectorAll(".save-btn").forEach((b) => {
     b.disabled = busy;
     b.classList.toggle("done", saved);
     b.innerHTML = saved ? ICON_DONE : ICON_SAVE;
     b.title = saved ? "Saved to inbox" : "Save to Obsidian inbox (s)";
+    b.setAttribute("aria-pressed", saved);
   });
 }
 
@@ -198,12 +200,22 @@ async function toggleStar() {
   $("#btn-star").classList.toggle("on", v);
 }
 
-async function markUnread() {
+function setReadBtn(isRead) {
+  const b = $("#btn-unread");
+  b.textContent = isRead ? "○" : "●";
+  b.classList.toggle("on", !isRead);
+  b.title = isRead ? "Mark unread (m)" : "Mark read (m)";
+  b.setAttribute("aria-pressed", !isRead);
+}
+
+async function toggleRead() {
   const e = S.entries.find((x) => x.id === S.cur);
   if (!e) return;
-  await api(`/entries/${S.cur}/state`, { method: "POST", body: { read: false } });
-  e.is_read = 0; patchRow(e); bump(e.feed_id, 1);
-  toast("Marked unread");
+  const nowRead = !e.is_read;
+  await api(`/entries/${S.cur}/state`, { method: "POST", body: { read: nowRead } });
+  e.is_read = nowRead ? 1 : 0;
+  if (S.art) S.art.is_read = e.is_read;
+  patchRow(e); bump(e.feed_id, nowRead ? -1 : 1); setReadBtn(nowRead);
 }
 
 function step(d) {
@@ -259,7 +271,7 @@ $("#btn-back").onclick = () => { if (location.hash.startsWith("#e")) history.bac
 $("#btn-refresh").onclick = refreshAll;
 document.querySelectorAll(".save-btn").forEach((b) => (b.onclick = save));
 $("#btn-star").onclick = toggleStar;
-$("#btn-unread").onclick = markUnread;
+$("#btn-unread").onclick = toggleRead;
 $("#btn-prev").onclick = () => step(-1);
 $("#btn-next").onclick = () => step(1);
 $("#btn-filter").onclick = () => {
@@ -319,7 +331,7 @@ addEventListener("keydown", (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey || /input|textarea/i.test(e.target.tagName) || document.querySelector("dialog[open]")) return;
   const k = e.key;
   if (k === "j") step(1); else if (k === "k") step(-1);
-  else if (k === "s") save(); else if (k === "m") markUnread();
+  else if (k === "s") save(); else if (k === "m") toggleRead();
   else if (k === "o" && S.art?.url) window.open(S.art.url, "_blank", "noopener");
   else if (k === "r") refreshAll(); else if (k === "u") $("#btn-filter").click();
   else if (k === "f") toggleStar(); else if (k === "/") { e.preventDefault(); $("#q").focus(); }
