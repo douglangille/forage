@@ -373,5 +373,13 @@ def create_app(cfg: Config | None = None) -> FastAPI:
     def sw():  # served from root so its scope covers the whole app
         return FileResponse(STATIC / "sw.js", media_type="text/javascript", headers={"Cache-Control": "no-cache"})
 
+    @app.middleware("http")
+    async def revalidate_code(request: Request, call_next):
+        # No Cache-Control + a Last-Modified header lets Safari reuse a stale app.js for days (heuristic caching).
+        resp = await call_next(request)
+        if request.url.path.endswith((".js", ".css")):
+            resp.headers["Cache-Control"] = "no-cache"
+        return resp
+
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
     return app
