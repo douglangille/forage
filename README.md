@@ -2,7 +2,17 @@
 
 A self-hosted RSS reader where the reader view is the main screen, and one tap saves the article to your Obsidian vault.
 
-It's a small Python server plus a progressive web app. Install the app to the Home Screen on an iPhone or iPad, or open it in a desktop browser. There's no native app, no account and no cloud service. It's built for one person on a home server, reached over a private network such as [Tailscale](https://tailscale.com).
+It's a small Python server plus a progressive web app. Install the app to the Home Screen on an iPhone or iPad, or open it in a desktop browser. There's no native app, no account and no cloud service. It's built for one person on a home server.
+
+> ## Read this first
+>
+> **WHAT THIS IS:** a single-user app for one person, on a private network you control.
+>
+> **WHAT THIS IS NOT:** a multi-user service, a hosted product, or anything safe to put on the public internet.
+>
+> **THERE IS NO LOGIN. NONE.** Anyone who can reach the port can read your feeds, change or delete them, make the server fetch any URL, and write files into your vault's inbox folder. **Your security is entirely a matter of who can reach it.**
+>
+> **How I run it:** on a home server, bound to localhost, exposed only to my own devices over [Tailscale](https://tailscale.com). Other ways to host it are listed [below](#other-ways-to-host-it). Pick one that keeps strangers out, or don't run it.
 
 Not affiliated with Obsidian, Readwise or any feed service.
 
@@ -63,7 +73,7 @@ The sync script is deliberately not a setting. Forage has no login, so a script 
 
 To start at boot without anyone logged in, run `loginctl enable-linger $USER` once.
 
-### HTTPS and the private network
+### How I run it: Tailscale
 
 iOS only installs and caches a PWA properly over HTTPS. With Tailscale, enable HTTPS certificates for your tailnet, then on the server:
 
@@ -73,9 +83,20 @@ sudo tailscale serve --bg --https=443 http://127.0.0.1:8787
 
 Open the `https://<host>.<tailnet>.ts.net` address on each device and choose Add to Home Screen. The app inlines its touch icon in the page because iOS can fail to fetch a separately linked icon from a private-network host and then shows a letter tile.
 
+### Other ways to host it
+
+Forage only needs something in front of it that decides who gets in. Tailscale is what I use and the only one I've tested. These are the other common shapes, described and **not tested by me**:
+
+- **Another private network** (WireGuard, ZeroTier, a VPN you already run). Same idea as Tailscale: nothing public, only your devices can connect. You still need a valid HTTPS certificate for iOS to install and cache the app.
+- **A reverse proxy that does the authentication** (Caddy or nginx with basic auth, or an auth layer such as Authelia). Forage stays on `127.0.0.1` and the proxy faces the network. Check that installing to the iOS Home Screen still works behind your auth, since PWAs and login prompts don't always get along.
+- **Cloudflare Tunnel with Access**, or a similar identity-aware gateway, in front of localhost.
+- **Localhost only**, with an SSH tunnel when you want it. Fine for a desktop, no use for an installed phone app.
+
+Whatever you choose, bind Forage to `127.0.0.1` (the default) and let the front layer be the only way in.
+
 ## Security
 
-**Forage has no login, by design.** Anyone who can reach the port can read your feeds, mark things read, delete feeds and write files into the inbox folder. Bind it to localhost (the default) and expose it only through a private network or an authenticating reverse proxy. Never put it on the public internet as it is.
+**Forage has no login, by design.** Anyone who can reach the port can read your feeds, mark things read, delete feeds and write files into the inbox folder. **Never put it on the public internet as it is.**
 
 It also fetches whatever address you give it, from the server's own network position. That's the point of the "find feeds" box, but on a shared network it means anyone who can reach Forage can make it request internal URLs. Keep it single-user.
 
