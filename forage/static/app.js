@@ -434,6 +434,18 @@ addEventListener("keydown", (e) => {
   else return;
 });
 
+// iOS can keep stale layout/hit-test geometry after a rotation; resetting scroll and nudging a reflow clears it.
+let rotTimer;
+function relayout() {
+  clearTimeout(rotTimer);
+  rotTimer = setTimeout(() => {
+    window.scrollTo(0, 0);
+    const app = $("#app"); app.style.transform = "translateZ(0)"; void app.offsetHeight; app.style.transform = "";
+  }, 250);
+}
+addEventListener("orientationchange", relayout);
+addEventListener("resize", relayout);
+
 document.addEventListener("visibilitychange", () => { if (!document.hidden) loadFeeds().catch(() => {}); });
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});

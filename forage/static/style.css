@@ -44,8 +44,7 @@
   }
 }
 * { box-sizing: border-box; }
-html, body { height: 100%; margin: 0; }
-html, body { position: fixed; inset: 0; width: 100%; overflow: hidden; }
+html, body { height: 100%; margin: 0; overflow: hidden; }
 body { background: var(--bg); color: var(--ink); font: 16px/1.4 var(--font-ui); -webkit-text-size-adjust: 100%; overscroll-behavior: none; }
 button, input, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
@@ -54,7 +53,8 @@ a { color: var(--accent); }
 [hidden] { display: none !important; }
 .only-narrow { display: none; }
 
-#app { display: grid; grid-template-columns: 250px 360px 1fr; height: 100%; }
+/* Pinned here, not on body: a fixed <body> leaves taps misaligned after an iOS rotation. */
+#app { position: fixed; inset: 0; display: grid; grid-template-columns: 250px 360px 1fr; }
 #side, #list-pane, #reader { min-height: 0; overflow: hidden; display: flex; flex-direction: column; background: var(--panel); }
 #side { border-right: 1px solid var(--line); padding-top: var(--sat); }
 #list-pane { border-right: 1px solid var(--line); padding-top: var(--sat); }
@@ -150,7 +150,7 @@ dialog input[type=text], dialog select { display: block; width: 100%; margin-top
 /* iPad portrait / phones: one pane at a time */
 @media (max-width: 899px) {
   .only-narrow { display: inline-block; }
-  #app { display: block; position: relative; overflow: hidden; }
+  #app { display: block; overflow: hidden; }
   #side { position: fixed; inset: 0 auto 0 0; width: min(300px, 86vw); z-index: 30; transform: translateX(-100%); transition: transform .22s, box-shadow .22s; }
   #app[data-menu="open"] #side { transform: none; box-shadow: 0 0 30px rgba(0,0,0,.25); }
   #app[data-menu="open"] #scrim { display: block; position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 20; }
