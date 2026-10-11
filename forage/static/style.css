@@ -1,4 +1,4 @@
-/* Libron (reading) and JetBrainsMono Nerd Font Mono (interface), both SIL OFL, self-hosted so iOS has them.
+/* Libron (reading) and JetBrainsMono Nerd Font Mono (code blocks), both SIL OFL, self-hosted so iOS has them.
    Libron: https://github.com/nicoverbruggen/libron. JetBrainsMono Nerd: https://github.com/ryanoasis/nerd-fonts (subset). */
 @font-face { font-family: "Libron"; src: url(/static/fonts/Libron-Regular.woff2) format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
 @font-face { font-family: "Libron"; src: url(/static/fonts/Libron-Italic.woff2) format("woff2"); font-weight: 400; font-style: italic; font-display: swap; }
@@ -26,7 +26,8 @@
   --love: #b4637a; --gold: #ea9d34; --rose: #d7827e; --foam: #56949f;
   --code-bg: #f2e9e1; --code-inline: #dfdad9;
   --sab: env(safe-area-inset-bottom, 0px); --sat: env(safe-area-inset-top, 0px);
-  --font-ui: "JetBrainsMono Nerd Font Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  --font-code: "JetBrainsMono Nerd Font Mono", ui-monospace, "SF Mono", Menlo, monospace;
   --font-read: "Libron", Charter, ui-serif, Georgia, serif;
 }
 @media (prefers-color-scheme: dark) {
@@ -40,7 +41,7 @@
 }
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
-body { background: var(--bg); color: var(--ink); font: 13px/1.5 var(--font-ui); -webkit-text-size-adjust: 100%; overscroll-behavior: none; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.4 var(--font-ui); -webkit-text-size-adjust: 100%; overscroll-behavior: none; }
 button, input, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
 a { color: var(--accent); }
@@ -113,7 +114,7 @@ a { color: var(--accent); }
 .prose blockquote { margin: 1em 0; padding-left: 1em; border-left: 3px solid var(--line-2); color: var(--muted); }
 .prose strong { color: var(--gold); }
 .prose pre { overflow-x: auto; background: var(--code-bg); padding: 12px; border-radius: 8px; font-size: 13px; line-height: 1.5; }
-.prose code { font: .8em var(--font-ui); background: var(--code-inline); padding: .1em .3em; border-radius: 4px; }
+.prose code { font: .8em var(--font-code); background: var(--code-inline); padding: .1em .3em; border-radius: 4px; }
 .prose pre code { background: none; padding: 0; }
 .prose table { border-collapse: collapse; display: block; overflow-x: auto; }
 .prose td, .prose th { border: 1px solid var(--line); padding: 4px 8px; }
