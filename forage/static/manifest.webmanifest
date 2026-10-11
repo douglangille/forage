@@ -1,6 +1,6 @@
 {
-  "name": "Rill",
-  "short_name": "Rill",
+  "name": "Forage",
+  "short_name": "Forage",
   "description": "RSS reader with one-tap save to Obsidian",
   "start_url": "/",
   "scope": "/",

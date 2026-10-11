@@ -1,0 +1,18 @@
+[Unit]
+Description=Forage RSS reader
+After=network-online.target
+
+[Service]
+WorkingDirectory=%h/forage
+Environment=FORAGE_DATA_DIR=%h/forage-data
+Environment=FORAGE_INBOX_DIR=%h/forge/inbox
+Environment=FORAGE_GIT_ROOT=%h/forge
+Environment=FORAGE_SYNC_SCRIPT=%h/forge/system/scripts/vault-autosync.sh
+Environment=FORAGE_HOST=127.0.0.1
+Environment=FORAGE_PORT=8787
+ExecStart=%h/forage/.venv/bin/python -m forage
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

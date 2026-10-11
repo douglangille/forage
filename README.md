@@ -1,22 +1,22 @@
-# Rill
+# Forage
 
 Self-hosted RSS reader. Reader view is the main screen; one tap saves the article to an Obsidian vault's `inbox/` as a Web Clipper–style note (default-template frontmatter, `tags: clippings`). A PWA, so it runs on macOS, iPhone and iPad from one codebase. Single user, no auth: bind it to localhost and reach it over Tailscale.
 
 ## Run locally
 
     python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'
-    RILL_DATA_DIR=data .venv/bin/python -m rill     # http://127.0.0.1:8787
+    FORAGE_DATA_DIR=data .venv/bin/python -m forage     # http://127.0.0.1:8787
     .venv/bin/pytest
 
 ## Config (environment)
 
 | Var | Default | |
 |---|---|---|
-| `RILL_DATA_DIR` | `data` | SQLite lives here |
-| `RILL_INBOX_DIR` | `$RILL_DATA_DIR/inbox` | where saved clips are written |
-| `RILL_HOST` / `RILL_PORT` | `127.0.0.1` / `8787` | |
-| `RILL_REFRESH_MINUTES` | `30` | background poll |
-| `RILL_WIKILINK_AUTHOR` | `1` | `author: - "[[Name]]"` like the clipper default |
+| `FORAGE_DATA_DIR` | `data` | SQLite lives here |
+| `FORAGE_INBOX_DIR` | `$FORAGE_DATA_DIR/inbox` | where saved clips are written |
+| `FORAGE_HOST` / `FORAGE_PORT` | `127.0.0.1` / `8787` | |
+| `FORAGE_REFRESH_MINUTES` | `30` | background poll |
+| `FORAGE_WIKILINK_AUTHOR` | `1` | `author: - "[[Name]]"` like the clipper default |
 
 ## Deploy (ubik)
 

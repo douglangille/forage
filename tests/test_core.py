@@ -4,9 +4,9 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from rill import clip, extract, opml
-from rill.app import create_app
-from rill.config import Config
+from forage import clip, extract, opml
+from forage.app import create_app
+from forage.config import Config
 
 RSS = b"""<?xml version="1.0"?><rss version="2.0"><channel><title>Test Feed</title><link>https://ex.test/</link>
 <item><title>Hello: "World"/1</title><link>https://ex.test/a</link><guid>a</guid><author>Jane Doe</author>
@@ -44,7 +44,7 @@ def test_opml_roundtrip():
 
 
 def test_api_flow(tmp_path, monkeypatch):
-    from rill import feeds
+    from forage import feeds
 
     async def fake_discover(http, url): return url
     async def fake_get(self, url, **kw):

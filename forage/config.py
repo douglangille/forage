@@ -18,25 +18,25 @@ class Config:
 
     @property
     def db_path(self) -> Path:
-        return self.data_dir / "rill.db"
+        return self.data_dir / "forage.db"
 
 
 def load() -> Config:
-    data_dir = Path(os.environ.get("RILL_DATA_DIR", "data")).expanduser()
-    inbox = Path(os.environ.get("RILL_INBOX_DIR", data_dir / "inbox")).expanduser()
-    git_root = os.environ.get("RILL_GIT_ROOT")
+    data_dir = Path(os.environ.get("FORAGE_DATA_DIR", "data")).expanduser()
+    inbox = Path(os.environ.get("FORAGE_INBOX_DIR", data_dir / "inbox")).expanduser()
+    git_root = os.environ.get("FORAGE_GIT_ROOT")
     return Config(
         data_dir=data_dir,
         inbox_dir=inbox,
-        host=os.environ.get("RILL_HOST", "127.0.0.1"),
-        port=int(os.environ.get("RILL_PORT", "8787")),
-        refresh_minutes=int(os.environ.get("RILL_REFRESH_MINUTES", "30")),
+        host=os.environ.get("FORAGE_HOST", "127.0.0.1"),
+        port=int(os.environ.get("FORAGE_PORT", "8787")),
+        refresh_minutes=int(os.environ.get("FORAGE_REFRESH_MINUTES", "30")),
         # Web Clipper's default template writes author as a [[wikilink]] property.
-        wikilink_author=os.environ.get("RILL_WIKILINK_AUTHOR", "1") != "0",
+        wikilink_author=os.environ.get("FORAGE_WIKILINK_AUTHOR", "1") != "0",
         user_agent=os.environ.get(
-            "RILL_USER_AGENT", "Mozilla/5.0 (compatible; rill/0.1; +self-hosted RSS reader)"
+            "FORAGE_USER_AGENT", "Mozilla/5.0 (compatible; forage/0.1; +self-hosted RSS reader)"
         ),
         # When set, a save also commits the clip and pushes (via sync_script if given).
         git_root=Path(git_root).expanduser() if git_root else None,
-        sync_script=os.environ.get("RILL_SYNC_SCRIPT") or None,
+        sync_script=os.environ.get("FORAGE_SYNC_SCRIPT") or None,
     )

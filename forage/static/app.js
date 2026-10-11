@@ -8,7 +8,7 @@ const S = {
   unreadOnly: true, q: "",
   get narrow() { return matchMedia("(max-width: 899px)").matches; },
 };
-try { S.unreadOnly = localStorage.getItem("rill.unreadOnly") !== "0"; } catch {}
+try { S.unreadOnly = localStorage.getItem("forage.unreadOnly") !== "0"; } catch {}
 
 async function api(path, opts = {}) {
   const r = await fetch("/api" + path, {
@@ -61,7 +61,7 @@ function renderNav() {
   }
   $("#nav").innerHTML = h;
   $("#folders").innerHTML = names.filter(Boolean).map((n) => `<option value="${esc(n)}">`).join("");
-  document.title = total ? `(${total}) Rill` : "Rill";
+  document.title = total ? `(${total}) Forage` : "Forage";
   try { navigator.setAppBadge?.(total); } catch {}
 }
 
@@ -277,7 +277,7 @@ $("#btn-prev").onclick = () => step(-1);
 $("#btn-next").onclick = () => step(1);
 $("#btn-filter").onclick = () => {
   S.unreadOnly = !S.unreadOnly;
-  try { localStorage.setItem("rill.unreadOnly", S.unreadOnly ? "1" : "0"); } catch {}
+  try { localStorage.setItem("forage.unreadOnly", S.unreadOnly ? "1" : "0"); } catch {}
   loadEntries();
 };
 $("#btn-markall").onclick = async () => {

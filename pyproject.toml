@@ -1,5 +1,5 @@
 [project]
-name = "rill"
+name = "forage"
 version = "0.1.0"
 description = "Self-hosted RSS reader with one-tap save to an Obsidian inbox"
 requires-python = ">=3.12"
@@ -17,10 +17,10 @@ dependencies = [
 dev = ["pytest", "pillow"]
 
 [tool.setuptools.packages.find]
-include = ["rill*"]
+include = ["forage*"]
 
 [tool.setuptools.package-data]
-rill = ["static/*", "static/icons/*"]
+forage = ["static/*", "static/icons/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

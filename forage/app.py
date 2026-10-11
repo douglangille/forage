@@ -39,7 +39,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         yield
         task.cancel()
 
-    app = FastAPI(title="rill", lifespan=lifespan)
+    app = FastAPI(title="forage", lifespan=lifespan)
 
     # ---- feeds ----
     @app.get("/api/feeds")
@@ -109,7 +109,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
     def export_opml():
         rows = conn.execute("SELECT * FROM feeds ORDER BY lower(folder), lower(title)").fetchall()
         return Response(opml.build_opml(rows), media_type="text/x-opml",
-                        headers={"Content-Disposition": 'attachment; filename="rill.opml"'})
+                        headers={"Content-Disposition": 'attachment; filename="forage.opml"'})
 
     # ---- entries ----
     @app.get("/api/entries")
@@ -212,7 +212,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
     async def _publish(path: Path, title: str):
         err = await asyncio.to_thread(clip.commit_and_push, cfg.git_root, path, title, cfg.sync_script)
         if err:
-            print(f"rill: git publish of {path.name} failed: {err}", flush=True)
+            print(f"forage: git publish of {path.name} failed: {err}", flush=True)
 
     @app.get("/")
     def index():

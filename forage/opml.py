@@ -21,7 +21,7 @@ def parse_opml(data: bytes) -> list[dict]:
 
 
 def build_opml(feeds) -> str:
-    lines = ['<?xml version="1.0" encoding="UTF-8"?>', '<opml version="2.0"><head><title>rill</title></head><body>']
+    lines = ['<?xml version="1.0" encoding="UTF-8"?>', '<opml version="2.0"><head><title>forage</title></head><body>']
     by_folder: dict[str, list] = {}
     for f in feeds:
         by_folder.setdefault(f["folder"], []).append(f)
