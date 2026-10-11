@@ -216,6 +216,7 @@ async def _sitemap(http, feed, first, seen, limit, progress):
             "link": loc, "id": loc, "title": (meta.title if meta and meta.title else "") or loc,
             "author": (meta.author if meta and meta.author else "") or "",
             "published_parsed": when, "content": [{"value": body}],
+            "media_thumbnail": [{"url": urljoin(loc, meta.image)}] if meta and meta.image else [],  # og:image, the feature image
         }], seen)
         progress["new"] = len(out)
     return out

@@ -217,7 +217,7 @@ def test_backfill_paged_feed(tmp_path, monkeypatch):
 def test_backfill_ignored_paged_param_and_sitemap(tmp_path, monkeypatch):
     import httpx
 
-    page = "<html><body><article><h1>Old</h1>" + "<p>" + "word " * 120 + "</p>" * 1 + "<p>" + "more " * 120 + "</p></article></body></html>"
+    page = '<html><head><meta property="og:image" content="/feature.jpg"></head><body><article><h1>Old</h1>' + "<p>" + "word " * 120 + "</p>" * 1 + "<p>" + "more " * 120 + "</p></article></body></html>"
 
     def handler(req: httpx.Request):
         path = req.url.path
@@ -240,6 +240,7 @@ def test_backfill_ignored_paged_param_and_sitemap(tmp_path, monkeypatch):
     assert st["state"] == "done" and st["method"] == "sitemap" and st["new"] == 1
     urls = {e["url"] for e in c.get("/api/entries").json()}
     assert urls == {"https://ex.test/a", "https://ex.test/old-post"}
+    assert any(e["image"] == "https://ex.test/feature.jpg" for e in c.get("/api/entries").json())
 
 
 def test_backfill_substack_skips_paid(tmp_path, monkeypatch):
