@@ -13,6 +13,8 @@ class Config:
     refresh_minutes: int
     wikilink_author: bool
     user_agent: str
+    git_root: Path | None = None
+    sync_script: str | None = None
 
     @property
     def db_path(self) -> Path:
@@ -22,6 +24,7 @@ class Config:
 def load() -> Config:
     data_dir = Path(os.environ.get("RILL_DATA_DIR", "data")).expanduser()
     inbox = Path(os.environ.get("RILL_INBOX_DIR", data_dir / "inbox")).expanduser()
+    git_root = os.environ.get("RILL_GIT_ROOT")
     return Config(
         data_dir=data_dir,
         inbox_dir=inbox,
@@ -33,4 +36,7 @@ def load() -> Config:
         user_agent=os.environ.get(
             "RILL_USER_AGENT", "Mozilla/5.0 (compatible; rill/0.1; +self-hosted RSS reader)"
         ),
+        # When set, a save also commits the clip and pushes (via sync_script if given).
+        git_root=Path(git_root).expanduser() if git_root else None,
+        sync_script=os.environ.get("RILL_SYNC_SCRIPT") or None,
     )

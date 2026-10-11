@@ -30,6 +30,7 @@ def test_render_matches_clipper_default():
     assert out.startswith('---\ntitle: "A \\"q\\""\nsource: "https://x/y"\nauthor:\n  - "[[Jane]]"\npublished: 2026-10-08\ncreated: 2026-10-10\n')
     assert 'tags:\n  - "clippings"\n---\n' in out
     assert "Hi [l](https://a)" in out
+    assert out.split("---\n")[2].startswith('# A "q"\n\nHi')
 
 
 def test_sanitize_strips_script_and_absolutizes():
@@ -67,3 +68,18 @@ def test_api_flow(tmp_path, monkeypatch):
         assert client.post(f"/api/entries/{eid}/save").json()["already"] is True
         assert client.get("/api/opml").text.count("xmlUrl") == 1
         assert client.get("/api/feeds").json()[0]["unread"] == 0
+
+
+def test_commit_and_push(tmp_path):
+    import subprocess
+    def git(*a, cwd): return subprocess.run(["git", *a], cwd=cwd, check=True, capture_output=True, text=True).stdout
+    bare, work = tmp_path / "bare.git", tmp_path / "work"
+    subprocess.run(["git", "init", "-q", "--bare", "-b", "main", str(bare)], check=True)
+    subprocess.run(["git", "clone", "-q", str(bare), str(work)], check=True, capture_output=True)
+    git("config", "user.email", "t@t", cwd=work); git("config", "user.name", "t", cwd=work)
+    (work / "other.md").write_text("x"); git("add", "-A", cwd=work); git("commit", "-qm", "init", cwd=work); git("push", "-q", "-u", "origin", "main", cwd=work)
+    (work / "other.md").write_text("mid-edit")  # must not be swept into the clip commit
+    p = clip.write(work / "inbox", {"title": "T", "url": "https://x", "author": "", "published": "", "summary": ""}, "<p>b</p>", True)
+    assert clip.commit_and_push(work, p, "T", None) == ""
+    assert git("log", "-1", "--format=%s", cwd=bare) .strip() == "Clip: T"
+    assert "other.md" in git("status", "--porcelain", cwd=work)

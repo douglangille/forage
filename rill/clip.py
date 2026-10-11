@@ -1,5 +1,6 @@
 """Write an article into the vault inbox in Obsidian Web Clipper's default-template shape."""
 import re
+import subprocess
 from datetime import datetime
 from pathlib import Path
 
@@ -32,7 +33,7 @@ def render(entry: dict, article_html: str, wikilink_author: bool, today: str) ->
     if entry.get("summary"):
         fm.append(f"description: {_q(entry['summary'][:300])}")
     fm += ["tags:", '  - "clippings"', "---", ""]
-    return "\n".join(fm) + extract.to_markdown(article_html)
+    return "\n".join(fm) + f"# {entry['title']}\n\n" + extract.to_markdown(article_html)
 
 
 def write(inbox: Path, entry: dict, article_html: str, wikilink_author: bool) -> Path:
@@ -49,3 +50,33 @@ def write(inbox: Path, entry: dict, article_html: str, wikilink_author: bool) ->
     tmp.write_text(text, encoding="utf-8")
     tmp.rename(path)  # vault-autosync never sees a half-written file
     return path
+
+
+def commit_and_push(git_root: Path, path: Path, title: str, sync_script: str | None) -> str:
+    """Commit just the clip, then let the vault's own sync script rebase and push.
+    Returns "" on success or a short reason. Never raises: the file is already saved."""
+    def run(*cmd, timeout=60):
+        return subprocess.run(cmd, cwd=git_root, capture_output=True, text=True, timeout=timeout)
+
+    try:
+        rel = str(path.relative_to(git_root))
+        if run("git", "add", "--", rel).returncode:
+            return "git add failed"
+        # Path-limited, so anything else mid-edit in the tree is not swept into the commit.
+        r = run("git", "commit", "-q", "-m", f"Clip: {title[:100]}", "--", rel)
+        if r.returncode:
+            return "commit failed: " + (r.stderr or r.stdout).strip()[:200]
+        if sync_script:
+            r = run("bash", sync_script, timeout=120)
+            if r.returncode:
+                return "sync failed: " + (r.stderr or r.stdout).strip()[:200]
+        else:
+            r = run("git", "pull", "--rebase", "--autostash", "-q", timeout=120)
+            if r.returncode:
+                return "pull failed: " + r.stderr.strip()[:200]
+            r = run("git", "push", "-q", timeout=120)
+            if r.returncode:
+                return "push failed: " + r.stderr.strip()[:200]
+    except Exception as exc:
+        return str(exc)[:200]
+    return ""

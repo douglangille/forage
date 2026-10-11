@@ -205,7 +205,14 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         path = clip.write(cfg.inbox_dir, dict(row), html, cfg.wikilink_author)
         conn.execute("UPDATE entries SET saved_path=?, is_read=1 WHERE id=?", (path.name, eid))
         conn.commit()
+        if cfg.git_root:
+            asyncio.create_task(_publish(path, row["title"]))  # background: don't make the tap wait on a push
         return {"path": path.name, "already": False}
+
+    async def _publish(path: Path, title: str):
+        err = await asyncio.to_thread(clip.commit_and_push, cfg.git_root, path, title, cfg.sync_script)
+        if err:
+            print(f"rill: git publish of {path.name} failed: {err}", flush=True)
 
     @app.get("/")
     def index():
