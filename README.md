@@ -32,3 +32,7 @@ Then open `https://ubik.<tailnet>.ts.net` on each device and Add to Home Screen.
 ## How it works
 
 `feedparser` + `httpx` poll feeds (ETag aware). A page is fetched and cleaned with `trafilatura` on first open unless the feed already carries the full text; HTML is sanitized with `nh3`; the clip is `markdownify` of that HTML.
+
+## Fonts
+
+Libron (reading, [nicoverbruggen/libron](https://github.com/nicoverbruggen/libron), v0.31 web build) and JetBrainsMono Nerd Font Mono (interface, subset from [ryanoasis/nerd-fonts](https://github.com/ryanoasis/nerd-fonts) v3.5.1), both SIL OFL 1.1, self-hosted in `forage/static/fonts/` with their licences alongside.

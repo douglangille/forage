@@ -20,7 +20,7 @@ dev = ["pytest", "pillow"]
 include = ["forage*"]
 
 [tool.setuptools.package-data]
-forage = ["static/*", "static/icons/*"]
+forage = ["static/*", "static/icons/*", "static/fonts/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

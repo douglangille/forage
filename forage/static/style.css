@@ -1,3 +1,11 @@
+/* Libron (reading) and JetBrainsMono Nerd Font Mono (interface), both SIL OFL, self-hosted so iOS has them.
+   Libron: https://github.com/nicoverbruggen/libron. JetBrainsMono Nerd: https://github.com/ryanoasis/nerd-fonts (subset). */
+@font-face { font-family: "Libron"; src: url(/static/fonts/Libron-Regular.woff2) format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Libron"; src: url(/static/fonts/Libron-Italic.woff2) format("woff2"); font-weight: 400; font-style: italic; font-display: swap; }
+@font-face { font-family: "Libron"; src: url(/static/fonts/Libron-Bold.woff2) format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Libron"; src: url(/static/fonts/Libron-BoldItalic.woff2) format("woff2"); font-weight: 700; font-style: italic; font-display: swap; }
+@font-face { font-family: "JetBrainsMono Nerd Font Mono"; src: url(/static/fonts/JetBrainsMonoNerd-Regular.woff2) format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "JetBrainsMono Nerd Font Mono"; src: url(/static/fonts/JetBrainsMonoNerd-Bold.woff2) format("woff2"); font-weight: 700; font-display: swap; }
 /* Rosé Pine (dark) / Rosé Pine Dawn (light): same palette and roles as forge's
    rose-pine-chrome.css and rose-pine-editor.css. Dawn's iris is darkened to #82699e
    for text-sized accents (the snippet's own contrast note). */
@@ -18,6 +26,8 @@
   --love: #b4637a; --gold: #ea9d34; --rose: #d7827e; --foam: #56949f;
   --code-bg: #f2e9e1; --code-inline: #dfdad9;
   --sab: env(safe-area-inset-bottom, 0px); --sat: env(safe-area-inset-top, 0px);
+  --font-ui: "JetBrainsMono Nerd Font Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-read: "Libron", Charter, ui-serif, Georgia, serif;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -30,8 +40,8 @@
 }
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
-body { background: var(--bg); color: var(--ink); font: 15px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; -webkit-text-size-adjust: 100%; overscroll-behavior: none; }
-button, input { font: inherit; color: inherit; }
+body { background: var(--bg); color: var(--ink); font: 13px/1.5 var(--font-ui); -webkit-text-size-adjust: 100%; overscroll-behavior: none; }
+button, input, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
 a { color: var(--accent); }
 .spacer { flex: 1; }
@@ -93,8 +103,8 @@ a { color: var(--accent); }
 .art-scroll { overflow-y: auto; flex: 1; -webkit-overflow-scrolling: touch; padding: 24px 20px calc(48px + var(--sab)); }
 .art-body { max-width: 680px; margin: 0 auto; }
 .meta { color: var(--muted); font-size: 13px; margin: 0 0 6px; }
-#art-title { font: 700 28px/1.2 Charter, ui-serif, "New York", Georgia, serif; margin: 0 0 20px; color: var(--love); }
-.prose { font: 18px/1.65 Charter, ui-serif, "New York", Georgia, serif; overflow-wrap: anywhere; }
+#art-title { font: 700 28px/1.2 var(--font-read); margin: 0 0 20px; color: var(--love); }
+.prose { font: 19px/1.65 var(--font-read); overflow-wrap: anywhere; }
 .prose img { max-width: 100%; height: auto; border-radius: 6px; }
 .prose figure { margin: 1.2em 0; }
 .prose figcaption { color: var(--muted); font-size: 14px; }
@@ -102,12 +112,12 @@ a { color: var(--accent); }
 .prose a:hover { text-decoration: underline; }
 .prose blockquote { margin: 1em 0; padding-left: 1em; border-left: 3px solid var(--line-2); color: var(--muted); }
 .prose strong { color: var(--gold); }
-.prose pre { overflow-x: auto; background: var(--code-bg); padding: 12px; border-radius: 8px; font-size: 14px; line-height: 1.45; }
-.prose code { font: .88em ui-monospace, "SF Mono", Menlo, monospace; background: var(--code-inline); padding: .1em .3em; border-radius: 4px; }
+.prose pre { overflow-x: auto; background: var(--code-bg); padding: 12px; border-radius: 8px; font-size: 13px; line-height: 1.5; }
+.prose code { font: .8em var(--font-ui); background: var(--code-inline); padding: .1em .3em; border-radius: 4px; }
 .prose pre code { background: none; padding: 0; }
 .prose table { border-collapse: collapse; display: block; overflow-x: auto; }
 .prose td, .prose th { border: 1px solid var(--line); padding: 4px 8px; }
-.prose h1, .prose h2, .prose h3, .prose h4 { font-family: -apple-system, system-ui, sans-serif; line-height: 1.25; }
+.prose h1, .prose h2, .prose h3, .prose h4 { font-family: var(--font-read); line-height: 1.25; }
 .prose h1 { color: var(--love); }
 .prose h2 { color: var(--accent); }
 .prose h3 { color: var(--rose); }
