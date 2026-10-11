@@ -108,7 +108,7 @@ a { color: var(--accent); }
 .art-head { border-bottom: 1px solid var(--line); background: var(--bg); }
 .art-scroll { overflow-y: auto; flex: 1; -webkit-overflow-scrolling: touch; padding: 24px 20px calc(48px + var(--sab)); container-type: inline-size; }
 /* Fixed measure (ch), font scales with the reader pane width (cqi). */
-.art-body { font-size: clamp(1.0625rem, .7rem + 1.6cqi, 1.5rem); max-width: 60ch; margin: 0 auto; }
+.art-body { font-size: clamp(1.0625rem, .7rem + 1.6cqi, 1.5rem); max-width: 50ch; margin: 0 auto; }
 .meta { color: var(--muted); font-size: 13px; margin: 0 0 6px; }
 #art-title { font: 700 1.5em/1.2 var(--font-read); margin: 0 0 20px; color: var(--love); }
 .prose { font: 1em/1.65 var(--font-read); overflow-wrap: anywhere; }
