@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import sqlite3
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -242,7 +243,11 @@ def create_app(cfg: Config | None = None) -> FastAPI:
 
     @app.get("/")
     def index():
-        return FileResponse(STATIC / "index.html")
+        # The touch icon is inlined as a data URI: iOS can fetch a linked icon in a separate
+        # step that doesn't reach a tailnet-only host, and then shows a letter tile instead.
+        icon = base64.b64encode((STATIC / "icons" / "apple-touch-icon.png").read_bytes()).decode()
+        page = (STATIC / "index.html").read_text().replace("{{TOUCH_ICON}}", "data:image/png;base64," + icon)
+        return Response(page, media_type="text/html", headers={"Cache-Control": "no-cache"})
 
     @app.get("/apple-touch-icon.png")
     @app.get("/apple-touch-icon-precomposed.png")
