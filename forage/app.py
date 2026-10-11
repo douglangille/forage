@@ -86,6 +86,25 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         conn.commit()
         return {"ok": True}
 
+    @app.post("/api/folders/rename")
+    def rename_folder(body: dict = Body(...)):
+        old, new = (body.get("from") or "").strip(), (body.get("to") or "").strip()
+        if not old or not new:
+            raise HTTPException(400, "from and to required")
+        # Renaming onto an existing folder name merges the two.
+        n = conn.execute("UPDATE feeds SET folder=? WHERE folder=?", (new, old)).rowcount
+        conn.commit()
+        return {"moved": n}
+
+    @app.post("/api/folders/delete")
+    def delete_folder(body: dict = Body(...)):
+        name = (body.get("name") or "").strip()
+        if not name:
+            raise HTTPException(400, "name required")
+        n = conn.execute("UPDATE feeds SET folder='' WHERE folder=?", (name,)).rowcount  # feeds are kept, just unfiled
+        conn.commit()
+        return {"unfiled": n}
+
     @app.delete("/api/feeds/{fid}")
     def delete_feed(fid: int):
         conn.execute("DELETE FROM feeds WHERE id=?", (fid,))

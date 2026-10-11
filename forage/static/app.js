@@ -44,6 +44,16 @@ function ago(iso) {
 /* ---------- sidebar ---------- */
 function scopeKey(sc) { return sc.type + ":" + (sc.id ?? sc.name ?? ""); }
 
+function folderNames() { return [...new Set(S.feeds.map((f) => f.folder).filter(Boolean))].sort((x, y) => x.localeCompare(y)); }
+function folderOptions(cur = "") {
+  return `<option value="">Unfiled</option>` + folderNames().map((n) => `<option value="${esc(n)}" ${n === cur ? "selected" : ""}>${esc(n)}</option>`).join("") + `<option value="__new__">New folder…</option>`;
+}
+function folderPick(sel, input) { return sel.value === "__new__" ? input.value.trim() : sel.value; }
+
+let collapsed = new Set();
+try { collapsed = new Set(JSON.parse(localStorage.getItem("forage.collapsed") || "[]")); } catch {}
+function saveCollapsed() { try { localStorage.setItem("forage.collapsed", JSON.stringify([...collapsed])); } catch {} }
+
 function renderNav() {
   const total = S.feeds.reduce((a, f) => a + f.unread, 0);
   const folders = {};
@@ -53,14 +63,18 @@ function renderNav() {
   let h = item({ type: "all" }, "All items", total) + item({ type: "starred" }, "Starred", 0);
   const names = Object.keys(folders).sort((a, b) => a.localeCompare(b));
   for (const name of names) {
+    const feedsHtml = folders[name].map((f) => item({ type: "feed", id: f.id }, f.title || f.url, f.unread, "nav-feed", !!f.error)).join("");
     if (name) {
       const n = folders[name].reduce((a, f) => a + f.unread, 0);
-      h += `<div class="nav-folder">${esc(name)}</div>` + item({ type: "folder", name }, "All in " + name, n);
-    } else if (names.length > 1) h += `<div class="nav-folder">Unfiled</div>`;
-    h += folders[name].map((f) => item({ type: "feed", id: f.id }, f.title || f.url, f.unread, "nav-feed", !!f.error)).join("");
+      const closed = collapsed.has(name);
+      h += `<div class="nav-fold"><button class="caret" data-fold="${esc(name)}" aria-label="${closed ? "Expand" : "Collapse"} ${esc(name)}" aria-expanded="${!closed}">${closed ? "▸" : "▾"}</button>`
+        + item({ type: "folder", name }, name, n, "folder") + `</div>` + (closed ? "" : feedsHtml);
+    } else {
+      if (names.length > 1) h += `<div class="nav-folder">Unfiled</div>`;
+      h += feedsHtml;
+    }
   }
   $("#nav").innerHTML = h;
-  $("#folders").innerHTML = names.filter(Boolean).map((n) => `<option value="${esc(n)}">`).join("");
   document.title = total ? `(${total}) Forage` : "Forage";
   try { navigator.setAppBadge?.(total); } catch {}
 }
@@ -256,11 +270,38 @@ async function refreshAll() {
 
 /* ---------- dialogs ---------- */
 function renderManage() {
-  $("#manage-list").innerHTML = S.feeds.map((f) => `<li data-id="${f.id}"><span class="t">${esc(f.title || f.url)}${f.error ? `<br><span class="e">${esc(f.error)}</span>` : ""}</span><button data-del="${f.id}">Remove</button></li>`).join("") || "<li>No feeds yet.</li>";
+  const groups = {};
+  S.feeds.forEach((f) => (groups[f.folder] ||= []).push(f));
+  const names = Object.keys(groups).sort((x, y) => x.localeCompare(y));
+  let h = "";
+  for (const name of names) {
+    const count = groups[name].length;
+    if (S.edit?.type === "folder" && S.edit.name === name) {
+      h += `<li class="m-head editing"><input class="e-name" type="text" value="${esc(name)}" autocapitalize="words"><button data-cancel>Cancel</button><button class="primary" data-saveren="${esc(name)}">Save</button></li>`;
+    } else {
+      h += `<li class="m-head"><span class="t">${esc(name || "Unfiled")} <span class="n">${count}</span></span>`
+        + (name ? `<button data-ren="${esc(name)}">Rename</button><button class="danger" data-delf="${esc(name)}">Delete</button>` : "") + `</li>`;
+    }
+    for (const f of groups[name]) {
+      if (S.edit?.type === "feed" && S.edit.id === f.id) {
+        h += `<li class="m-edit" data-id="${f.id}"><input class="e-title" type="text" value="${esc(f.title)}" placeholder="${esc(f.url)}">
+          <select class="e-folder">${folderOptions(f.folder)}</select><input class="e-new" type="text" placeholder="New folder name" autocapitalize="words" hidden>
+          <div class="row"><button data-cancel>Cancel</button><button class="primary" data-savefeed="${f.id}">Save</button></div></li>`;
+      } else {
+        h += `<li class="m-feed" data-id="${f.id}"><span class="t">${esc(f.title || f.url)}${f.error ? `<br><span class="e">${esc(f.error)}</span>` : ""}</span><button data-edit="${f.id}">Edit</button><button class="danger" data-del="${f.id}">Remove</button></li>`;
+      }
+    }
+  }
+  $("#manage-list").innerHTML = h || "<li>No feeds yet.</li>";
 }
 
 /* ---------- wiring ---------- */
-$("#nav").addEventListener("click", (e) => { const b = e.target.closest("[data-scope]"); if (b) setScope(JSON.parse(b.dataset.scope)); });
+$("#nav").addEventListener("click", (e) => {
+  const c = e.target.closest("[data-fold]");
+  if (c) { const n = c.dataset.fold; collapsed.has(n) ? collapsed.delete(n) : collapsed.add(n); saveCollapsed(); renderNav(); return; }
+  const b = e.target.closest("[data-scope]");
+  if (b) setScope(JSON.parse(b.dataset.scope));
+});
 $("#entries").addEventListener("click", (e) => { const li = e.target.closest("li[data-id]"); if (li) openEntry(+li.dataset.id); });
 $("#entries").addEventListener("scroll", (e) => {
   const el = e.target;
@@ -295,10 +336,11 @@ $("#btn-markall").onclick = async () => {
 let qTimer;
 $("#q").addEventListener("input", (e) => { clearTimeout(qTimer); qTimer = setTimeout(() => { S.q = e.target.value.trim(); loadEntries(); }, 250); });
 
-function openFind() { setMenu(false); $("#add-msg").textContent = ""; $("#results").innerHTML = ""; $("#dlg-add").showModal(); $("#add-url").focus(); }
+function openFind() { setMenu(false); $("#add-folder").innerHTML = folderOptions(""); $("#add-folder-new").hidden = true; $("#add-folder-new").value = ""; $("#add-msg").textContent = ""; $("#results").innerHTML = ""; $("#dlg-add").showModal(); $("#add-url").focus(); }
 $("#btn-add").onclick = openFind;
 $("#manage-find").onclick = () => { $("#dlg-manage").close(); openFind(); };
 $("#add-cancel").onclick = () => $("#dlg-add").close();
+$("#add-folder").addEventListener("change", (e) => { const n = $("#add-folder-new"); n.hidden = e.target.value !== "__new__"; if (!n.hidden) n.focus(); });
 let found = [];
 function resultHtml(r, i) {
   const d = new Date(r.latest);
@@ -321,20 +363,55 @@ $("#results").addEventListener("click", async (e) => {
   const r = found[+b.dataset.i];
   b.disabled = true; b.textContent = "Adding…";
   try {
-    await api("/feeds", { method: "POST", body: { url: r.url, folder: $("#add-folder").value } });
+    await api("/feeds", { method: "POST", body: { url: r.url, folder: folderPick($("#add-folder"), $("#add-folder-new")) } });
     r.subscribed = true; b.textContent = "Added ✓";
     await loadFeeds(); await loadEntries();
   } catch (err) { b.disabled = false; b.textContent = "Add"; $("#add-msg").textContent = err.message; }
 });
-$("#btn-manage").onclick = () => { setMenu(false); renderManage(); $("#dlg-manage").showModal(); };
 $("#manage-close").onclick = () => $("#dlg-manage").close();
+async function manageRefresh() { await loadFeeds(); renderManage(); loadEntries(); }
 $("#manage-list").addEventListener("click", async (e) => {
-  const id = e.target.dataset.del;
-  if (!id || !confirm("Remove this feed and its articles?")) return;
-  await api("/feeds/" + id, { method: "DELETE" });
-  if (S.scope.type === "feed" && S.scope.id === +id) S.scope = { type: "all" };
-  await loadFeeds(); renderManage(); loadEntries();
+  const d = e.target.dataset;
+  try {
+    if (d.edit) { S.edit = { type: "feed", id: +d.edit }; renderManage(); }
+    else if (d.ren !== undefined) { S.edit = { type: "folder", name: d.ren }; renderManage(); }
+    else if ("cancel" in d) { S.edit = null; renderManage(); }
+    else if (d.savefeed) {
+      const li = e.target.closest("li");
+      const folder = folderPick(li.querySelector(".e-folder"), li.querySelector(".e-new"));
+      if (li.querySelector(".e-folder").value === "__new__" && !folder) return toast("Name the new folder");
+      await api("/feeds/" + d.savefeed, { method: "PATCH", body: { title: li.querySelector(".e-title").value, folder } });
+      S.edit = null; await manageRefresh();
+    } else if (d.saveren) {
+      const to = e.target.closest("li").querySelector(".e-name").value.trim();
+      if (!to) return toast("Folder needs a name");
+      const merging = to !== d.saveren && folderNames().includes(to);
+      await api("/folders/rename", { method: "POST", body: { from: d.saveren, to } });
+      if (collapsed.delete(d.saveren)) saveCollapsed();
+      if (S.scope.type === "folder" && S.scope.name === d.saveren) S.scope = { type: "folder", name: to };
+      S.edit = null; await manageRefresh();
+      if (merging) toast(`Merged into ${to}`);
+    } else if (d.delf) {
+      if (!confirm(`Delete folder "${d.delf}"? Its feeds move to Unfiled.`)) return;
+      await api("/folders/delete", { method: "POST", body: { name: d.delf } });
+      if (S.scope.type === "folder" && S.scope.name === d.delf) S.scope = { type: "all" };
+      await manageRefresh();
+    } else if (d.del) {
+      if (!confirm("Remove this feed and its articles?")) return;
+      await api("/feeds/" + d.del, { method: "DELETE" });
+      if (S.scope.type === "feed" && S.scope.id === +d.del) S.scope = { type: "all" };
+      await manageRefresh();
+    }
+  } catch (err) { toast(err.message); }
 });
+$("#manage-list").addEventListener("change", (e) => {
+  if (e.target.classList.contains("e-folder")) {
+    const input = e.target.closest("li").querySelector(".e-new");
+    input.hidden = e.target.value !== "__new__";
+    if (!input.hidden) input.focus();
+  }
+});
+$("#btn-manage").onclick = () => { setMenu(false); S.edit = null; renderManage(); $("#dlg-manage").showModal(); };
 $("#opml-file").addEventListener("change", async (e) => {
   const f = e.target.files[0]; if (!f) return;
   try {

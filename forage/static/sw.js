@@ -1,6 +1,6 @@
 // App shell cache + stale-while-revalidate for read-only API calls, so recent articles open offline.
-const SHELL = "forage-shell-v4";
-const API = "forage-api-v4";
+const SHELL = "forage-shell-v5";
+const API = "forage-api-v5";
 const ASSETS = ["/", "/static/style.css", "/static/app.js", "/static/manifest.webmanifest", "/static/icons/icon.svg"];
 
 self.addEventListener("install", (e) => {

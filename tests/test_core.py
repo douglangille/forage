@@ -93,3 +93,21 @@ def test_platform_candidates_and_dedupe():
     assert search.platform_candidates("https://example.com/") == []
     assert search.norm("https://www.Example.com/feed/") == search.norm("http://example.com/feed")
     assert search.looks_like_url("simonwillison.net") and not search.looks_like_url("ethan mollick")
+
+
+def test_folder_rename_merge_delete(tmp_path):
+    c = cfg(tmp_path)
+    with TestClient(create_app(c)) as client:
+        import sqlite3
+        db = sqlite3.connect(c.db_path)
+        for i, f in enumerate(["Dev", "dev", "Dev", ""]):
+            db.execute("INSERT INTO feeds (url, title, folder) VALUES (?,?,?)", (f"https://x/{i}", f"F{i}", f))
+        db.commit()
+        assert client.post("/api/folders/rename", json={"from": "dev", "to": "Dev"}).json() == {"moved": 1}
+        folders = sorted({f["folder"] for f in client.get("/api/feeds").json()})
+        assert folders == ["", "Dev"]
+        assert client.post("/api/folders/delete", json={"name": "Dev"}).json() == {"unfiled": 3}
+        assert {f["folder"] for f in client.get("/api/feeds").json()} == {""}
+        fid = client.get("/api/feeds").json()[0]["id"]
+        client.patch(f"/api/feeds/{fid}", json={"title": "New", "folder": "X"})
+        assert [f["folder"] for f in client.get("/api/feeds").json() if f["id"] == fid] == ["X"]

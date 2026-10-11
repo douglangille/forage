@@ -74,8 +74,8 @@
       <input id="add-url" type="text" inputmode="search" autocapitalize="off" autocorrect="off" required placeholder="Keywords, a site, or a feed address" aria-label="Search or address">
       <button class="primary" id="add-go">Search</button>
     </div>
-    <label>Add to folder (optional) <input id="add-folder" type="text" list="folders" autocapitalize="words"></label>
-    <datalist id="folders"></datalist>
+    <label>Add to folder <select id="add-folder"></select></label>
+    <input id="add-folder-new" type="text" placeholder="New folder name" autocapitalize="words" hidden>
     <p id="add-msg" class="msg"></p>
     <ul id="results"></ul>
     <div class="row"><button type="button" class="linkish" id="add-cancel">Close</button></div>
