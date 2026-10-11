@@ -35,4 +35,4 @@ Then open `https://ubik.<tailnet>.ts.net` on each device and Add to Home Screen.
 
 ## Fonts
 
-Libron (reading, [nicoverbruggen/libron](https://github.com/nicoverbruggen/libron), v0.31 web build) and JetBrainsMono Nerd Font Mono (code, subset from [ryanoasis/nerd-fonts](https://github.com/ryanoasis/nerd-fonts) v3.5.1), both SIL OFL 1.1, self-hosted in `forage/static/fonts/` with their licences alongside.
+Libron (reading, [nicoverbruggen/libron](https://github.com/nicoverbruggen/libron), v0.31 web build) and JetBrainsMono Nerd Font Mono (code, subset from [ryanoasis/nerd-fonts](https://github.com/ryanoasis/nerd-fonts) v3.5.1), Source Sans 3 (interface, [adobe-fonts/source-sans](https://github.com/adobe-fonts/source-sans) 3.052R, subset). All SIL OFL 1.1, self-hosted in `forage/static/fonts/` with their licences alongside.

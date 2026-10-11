@@ -1,9 +1,13 @@
-/* Libron (reading) and JetBrainsMono Nerd Font Mono (code blocks), both SIL OFL, self-hosted so iOS has them.
+/* Libron (reading), Source Sans 3 (interface) and JetBrainsMono Nerd Font Mono (code blocks), both SIL OFL, self-hosted so iOS has them.
    Libron: https://github.com/nicoverbruggen/libron. JetBrainsMono Nerd: https://github.com/ryanoasis/nerd-fonts (subset). */
 @font-face { font-family: "Libron"; src: url(/static/fonts/Libron-Regular.woff2) format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
 @font-face { font-family: "Libron"; src: url(/static/fonts/Libron-Italic.woff2) format("woff2"); font-weight: 400; font-style: italic; font-display: swap; }
 @font-face { font-family: "Libron"; src: url(/static/fonts/Libron-Bold.woff2) format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
 @font-face { font-family: "Libron"; src: url(/static/fonts/Libron-BoldItalic.woff2) format("woff2"); font-weight: 700; font-style: italic; font-display: swap; }
+@font-face { font-family: "Source Sans 3"; src: url(/static/fonts/SourceSans3-Regular.woff2) format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Source Sans 3"; src: url(/static/fonts/SourceSans3-It.woff2) format("woff2"); font-weight: 400; font-style: italic; font-display: swap; }
+@font-face { font-family: "Source Sans 3"; src: url(/static/fonts/SourceSans3-Semibold.woff2) format("woff2"); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: "Source Sans 3"; src: url(/static/fonts/SourceSans3-Bold.woff2) format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
 @font-face { font-family: "JetBrainsMono Nerd Font Mono"; src: url(/static/fonts/JetBrainsMonoNerd-Regular.woff2) format("woff2"); font-weight: 400; font-display: swap; }
 @font-face { font-family: "JetBrainsMono Nerd Font Mono"; src: url(/static/fonts/JetBrainsMonoNerd-Bold.woff2) format("woff2"); font-weight: 700; font-display: swap; }
 /* Rosé Pine (dark) / Rosé Pine Dawn (light): same palette and roles as forge's
@@ -26,7 +30,7 @@
   --love: #b4637a; --gold: #ea9d34; --rose: #d7827e; --foam: #56949f;
   --code-bg: #f2e9e1; --code-inline: #dfdad9;
   --sab: env(safe-area-inset-bottom, 0px); --sat: env(safe-area-inset-top, 0px);
-  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  --font-ui: "Source Sans 3", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --font-code: "JetBrainsMono Nerd Font Mono", ui-monospace, "SF Mono", Menlo, monospace;
   --font-read: "Libron", Charter, ui-serif, Georgia, serif;
 }
@@ -41,7 +45,7 @@
 }
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
-body { background: var(--bg); color: var(--ink); font: 15px/1.4 var(--font-ui); -webkit-text-size-adjust: 100%; overscroll-behavior: none; }
+body { background: var(--bg); color: var(--ink); font: 16px/1.4 var(--font-ui); -webkit-text-size-adjust: 100%; overscroll-behavior: none; }
 button, input, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
 a { color: var(--accent); }
