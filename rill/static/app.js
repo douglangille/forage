@@ -178,14 +178,13 @@ function setSaveBtn(saved, busy = false) {
 
 async function save() {
   if (!S.cur) return;
-  if ($("#btn-save").classList.contains("done")) { toast("Already in your inbox"); return; }
+  if ($("#btn-save").classList.contains("done")) return;
   setSaveBtn(false, true);
   try {
     const r = await api(`/entries/${S.cur}/save`, { method: "POST" });
     setSaveBtn(true);
     const e = S.entries.find((x) => x.id === S.cur);
     if (e) { e.saved_path = r.path; patchRow(e); }
-    toast("Saved to inbox: " + r.path.replace(/\.md$/, ""));
   } catch (err) { setSaveBtn(false); toast("Save failed: " + err.message); }
 }
 
