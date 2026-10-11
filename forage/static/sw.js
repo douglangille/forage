@@ -1,6 +1,6 @@
 // App shell cache + stale-while-revalidate for read-only API calls, so recent articles open offline.
-const SHELL = "forage-shell-v8";
-const API = "forage-api-v8";
+const SHELL = "forage-shell-v9";
+const API = "forage-api-v9";
 const ASSETS = ["/", "/static/style.css", "/static/app.js", "/static/manifest.webmanifest", "/static/icons/icon.svg",
   "/static/fonts/Libron-Regular.woff2", "/static/fonts/Libron-Italic.woff2", "/static/fonts/Libron-Bold.woff2", "/static/fonts/Libron-BoldItalic.woff2",
   "/static/fonts/SourceSans3-Regular.woff2", "/static/fonts/SourceSans3-Semibold.woff2", "/static/fonts/SourceSans3-Bold.woff2", "/static/fonts/SourceSans3-It.woff2",

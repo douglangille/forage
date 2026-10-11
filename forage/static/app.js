@@ -63,7 +63,7 @@ function renderNav() {
   let h = item({ type: "all" }, "All items", total) + item({ type: "starred" }, "Starred", 0);
   const names = Object.keys(folders).sort((a, b) => a.localeCompare(b));
   for (const name of names) {
-    const feedsHtml = folders[name].map((f) => item({ type: "feed", id: f.id }, f.title || f.url, f.unread, "nav-feed", !!f.error)).join("");
+    const feedsHtml = folders[name].map((f) => item({ type: "feed", id: f.id }, f.title || f.url, f.unread, name ? "nav-feed" : "", !!f.error)).join("");
     if (name) {
       const n = folders[name].reduce((a, f) => a + f.unread, 0);
       const closed = collapsed.has(name);

@@ -81,8 +81,8 @@ a { color: var(--accent); }
 .nav-item .t { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nav-item .n { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 .nav-item.err .t::after { content: " ⚠"; color: var(--gold); }
-.nav-folder { margin: 12px 10px 3px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--faint); }
-.nav-feed { padding-left: 18px; }
+.nav-folder { margin: 12px 10px 3px 36px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--faint); }
+
 .side-foot { display: flex; justify-content: space-between; padding: 8px 12px calc(8px + var(--sab)); border-top: 1px solid var(--line); }
 
 .searchbar { padding: 0 12px 8px; }
@@ -187,3 +187,10 @@ dialog input[type=text], dialog select { display: block; width: 100%; margin-top
 #manage-list button.danger { color: var(--love); }
 #manage-list button.primary { background: var(--accent); color: var(--accent-ink); padding: 6px 12px; }
 #add-folder-new { margin-top: -4px; margin-bottom: 10px; }
+
+/* Sidebar alignment: a 26px gutter on the left holds the folder carets, so every top-level
+   row (All, Starred, folders, unfiled feeds) shares one left edge and a folder's feeds
+   step in 14px under their folder's name. */
+#nav > .nav-item { margin-left: 26px; width: calc(100% - 26px); }
+#nav > .nav-item.nav-feed { margin-left: 40px; width: calc(100% - 40px); }
+.nav-fold .caret { width: 26px; }
