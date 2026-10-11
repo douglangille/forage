@@ -125,3 +125,35 @@ def test_entities_decoded_in_summary_and_title(tmp_path, monkeypatch):
         client.post("/api/feeds", json={"url": "https://e/feed"})
         e = client.get("/api/entries").json()[0]
         assert "&#" not in e["summary"] and "\u2019" in e["summary"] and "\u2019" in e["title"]
+
+
+def test_settings_roundtrip_and_save_uses_them(tmp_path, monkeypatch):
+    import httpx
+    from forage import feeds
+    async def fake_discover(http, url): return url
+    async def fake_get(self, url, **kw): return httpx.Response(200, content=RSS, headers={"content-type": "application/rss+xml"}, request=httpx.Request("GET", url))
+    monkeypatch.setattr(feeds, "discover", fake_discover)
+    monkeypatch.setattr("httpx.AsyncClient.get", fake_get)
+    c = cfg(tmp_path)
+    with TestClient(create_app(c)) as client:
+        st = client.get("/api/settings").json()
+        assert st["inbox_dir"] == str(c.inbox_dir) and st["git_push"] is False and st["sync_script"] is False
+        for bad in ({"inbox_dir": "relative/path"}, {"refresh_minutes": 2}, {"refresh_minutes": "abc"}):
+            assert client.put("/api/settings", json=bad).status_code == 422
+        new = tmp_path / "my vault" / "inbox"
+        st = client.put("/api/settings", json={"inbox_dir": str(new), "wikilink_author": False, "refresh_minutes": 60}).json()
+        assert st["inbox_dir"] == str(new) and new.is_dir() and st["refresh_minutes"] == 60 and st["wikilink_author"] is False
+        client.post("/api/feeds", json={"url": "https://ex.test/feed"})
+        eid = client.get("/api/entries").json()[0]["id"]
+        path = client.post(f"/api/entries/{eid}/save").json()["path"]
+        text = (new / path).read_text()
+        assert 'author:\n  - "Jane Doe"' in text and "[[" not in text
+
+
+def test_settings_cannot_set_a_script(tmp_path):
+    with TestClient(create_app(cfg(tmp_path))) as client:
+        st = client.put("/api/settings", json={"sync_script": "/bin/evil", "git_root": "/", "inbox_dir": str(tmp_path / "i")}).json()
+        assert "sync_script" in st and st["sync_script"] is False  # only reports whether the server configured one
+        import sqlite3
+        keys = {r[0] for r in sqlite3.connect(cfg(tmp_path).db_path).execute("select key from settings")}
+        assert keys == {"inbox_dir"}

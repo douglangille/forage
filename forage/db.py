@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS entries (
   saved_path TEXT,
   UNIQUE(feed_id, guid)
 );
+CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS entries_pub ON entries(published DESC, id DESC);
 CREATE INDEX IF NOT EXISTS entries_feed ON entries(feed_id, is_read);
 """

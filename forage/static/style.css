@@ -200,3 +200,11 @@ dialog input[type=text], dialog select { display: block; width: 100%; margin-top
 /* Manage's top row: button, label and link must render identically (the dialog's small-label style was leaking into Import). */
 #dlg-manage .row.wrap { gap: 8px; margin-bottom: 4px; }
 #dlg-manage .btn { display: inline-flex; align-items: center; margin: 0; padding: 7px 12px; font-size: 14px; line-height: 1.2; color: var(--accent); background: none; text-decoration: none; }
+
+#dlg-settings label { display: block; margin-bottom: 12px; }
+#dlg-settings label.check { display: flex; align-items: center; gap: 10px; color: var(--ink); font-size: 15px; margin-bottom: 4px; }
+#dlg-settings label.check input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); }
+#dlg-settings .hint { color: var(--muted); font-size: 12px; margin: 4px 0 12px; overflow-wrap: anywhere; }
+#dlg-settings .inline { display: inline-flex; align-items: center; gap: 8px; margin-top: 4px; color: var(--ink); }
+#dlg-settings input[type=number] { width: 84px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg); font-size: 16px; }
+.hint.bad { color: var(--love); }

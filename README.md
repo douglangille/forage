@@ -11,6 +11,7 @@ Not affiliated with Obsidian, Readwise or any feed service.
 - **Reading first.** Open an article and get a clean, typeset page. If the feed only carries a summary, Forage fetches the page and extracts the readable text ([trafilatura](https://github.com/adbar/trafilatura)), caches it, and sanitizes it.
 - **One-tap save to Obsidian.** The checkbox in the article toolbar writes a markdown note to a folder in your vault, in the shape of Obsidian Web Clipper's default template: frontmatter (`title`, `source`, `author`, `published`, `created`, `description`, `tags: clippings`), then `# Title` and the article body.
 - **Optional commit and push.** If the vault is a git checkout, a save can also commit just that file and push it, so phones and other machines pick it up through whatever git sync you already use.
+- **Settings in the app.** Inbox folder, commit-and-push, author style and refresh interval are set from a gear button, with no config file.
 - **Find feeds.** Paste a site, page or feed address to list every feed behind it, with built-in rules for Substack, GitHub (releases and commits), Reddit, Medium, YouTube and Bluesky. Or type keywords to search Substack and Feedly.
 - **Folders.** Rename, merge and delete folders, move feeds between them, and collapse them in the sidebar.
 - **OPML** import and export.
@@ -27,39 +28,38 @@ git clone https://github.com/douglangille/forage.git
 cd forage
 python3 -m venv .venv
 .venv/bin/pip install -e '.[dev]'
-FORAGE_DATA_DIR=data FORAGE_INBOX_DIR=/path/to/your/vault/inbox .venv/bin/python -m forage
+.venv/bin/python -m forage
 ```
 
-Open <http://127.0.0.1:8787>, choose **+ Find feeds**, and go. Without `FORAGE_INBOX_DIR`, saved clips go to `data/inbox`.
+Open <http://127.0.0.1:8787>, choose **+ Find feeds**, then open **Settings** (the gear) and point **Obsidian inbox folder** at a folder in your vault. Until you do, saved clips go to `data/inbox`.
 
 Run the tests with `.venv/bin/pytest`.
 
 ## Configuration
 
-All settings are environment variables.
+**Settings (the gear in the sidebar)** are saved in the database, so there's no file to edit:
+
+- **Obsidian inbox folder:** where saved clips are written. Forage creates it if it doesn't exist.
+- **Commit and push each saved clip:** if that folder is inside a git checkout, a save also commits just the clip and pushes it, so phones and other machines get it through whatever git sync you already use. The commit is limited to the saved file, so anything else you have mid-edit in the checkout is left alone. A git failure never fails the save: the file is already written, and the error goes to the log.
+- **Write the author as a [[wikilink]]:** Web Clipper's default does; turn it off for plain text.
+- **Check for new articles every N minutes:** 5 to 1440.
+
+**Environment variables** only cover what has to be known before the app starts, plus optional first-run defaults for the settings above (a value saved in Settings wins):
 
 | Variable | Default | Meaning |
 |---|---|---|
 | `FORAGE_DATA_DIR` | `data` | Where the SQLite database lives |
-| `FORAGE_INBOX_DIR` | `$FORAGE_DATA_DIR/inbox` | Folder saved clips are written to |
 | `FORAGE_HOST` / `FORAGE_PORT` | `127.0.0.1` / `8787` | Listen address |
-| `FORAGE_REFRESH_MINUTES` | `30` | Background polling interval |
-| `FORAGE_WIKILINK_AUTHOR` | `1` | Write `author: - "[[Name]]"` as Web Clipper does; `0` for plain text |
-| `FORAGE_GIT_ROOT` | unset | If set, a save also commits the clip in this git checkout |
-| `FORAGE_SYNC_SCRIPT` | unset | Script to run after the commit to rebase and push; unset means plain `git pull --rebase` then `git push` |
 | `FORAGE_USER_AGENT` | a generic UA | Sent when fetching feeds and pages |
+| `FORAGE_INBOX_DIR`, `FORAGE_WIKILINK_AUTHOR`, `FORAGE_REFRESH_MINUTES` | see Settings | First-run defaults |
+| `FORAGE_GIT_ROOT` | unset | First-run default: turns on commit-and-push for this checkout |
+| `FORAGE_SYNC_SCRIPT` | unset | **Server-side only.** A script to run after the commit to rebase and push, instead of plain `git pull --rebase` and `git push` |
 
-When `FORAGE_GIT_ROOT` is set, the commit is path-limited to the saved file, so anything else you have mid-edit in that checkout is left alone. A git failure never fails the save: the file is already written, and the error goes to the log.
+The sync script is deliberately not a setting. Forage has no login, so a script path editable from the UI would let anyone who can reach it run a command on the server.
 
 ## Running it on a home server
 
-`deploy/deploy.sh user@host` copies the code to `~/forage` on the server, builds a venv, installs the service as a **systemd user service**, and restarts it. Put per-host settings in `~/.config/forage/forage.env` on the server (plain `KEY=value` lines, absolute paths):
-
-```
-FORAGE_INBOX_DIR=/home/you/vault/inbox
-FORAGE_GIT_ROOT=/home/you/vault
-FORAGE_SYNC_SCRIPT=/home/you/vault/scripts/sync.sh
-```
+`deploy/deploy.sh user@host` copies the code to `~/forage` on the server, builds a venv, installs the service as a **systemd user service**, and restarts it. Everything day-to-day is in Settings. If you need the environment variables above, put them as plain `KEY=value` lines (absolute paths) in `~/.config/forage/forage.env` on the server, which the service unit reads.
 
 To start at boot without anyone logged in, run `loginctl enable-linger $USER` once.
 

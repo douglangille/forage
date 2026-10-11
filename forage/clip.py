@@ -80,3 +80,15 @@ def commit_and_push(git_root: Path, path: Path, title: str, sync_script: str | N
     except Exception as exc:
         return str(exc)[:200]
     return ""
+
+
+def git_toplevel(path: Path) -> Path | None:
+    """The git checkout containing path (or its nearest existing parent), if any."""
+    p = path
+    while not p.exists() and p != p.parent:
+        p = p.parent
+    try:
+        r = subprocess.run(["git", "-C", str(p), "rev-parse", "--show-toplevel"], capture_output=True, text=True, timeout=10)
+    except Exception:
+        return None
+    return Path(r.stdout.strip()) if r.returncode == 0 and r.stdout.strip() else None

@@ -295,6 +295,37 @@ function renderManage() {
   $("#manage-list").innerHTML = h || "<li>No feeds yet.</li>";
 }
 
+/* ---------- settings ---------- */
+function fillSettings(st) {
+  $("#set-inbox").value = st.inbox_dir;
+  $("#set-git").checked = st.git_push;
+  $("#set-wiki").checked = st.wikilink_author;
+  $("#set-refresh").value = st.refresh_minutes;
+  const n = $("#set-inbox-note");
+  n.classList.toggle("bad", !st.inbox_writable);
+  n.textContent = !st.inbox_exists ? "Doesn't exist yet. Forage will create it when you save settings." : st.inbox_writable ? "Saved clips are written here." : "Forage can't write to this folder.";
+  $("#set-git-note").textContent = st.git_root
+    ? `Git checkout: ${st.git_root}.${st.sync_script ? " Pushing through the server's sync script." : " Pushes with plain git."}`
+    : "That folder isn't inside a git checkout, so there's nothing to commit to.";
+}
+$("#btn-settings").onclick = async () => {
+  setMenu(false); $("#set-msg").textContent = "";
+  try { fillSettings(await api("/settings")); $("#dlg-settings").showModal(); }
+  catch (e) { toast("Couldn't load settings: " + e.message); }
+};
+$("#set-cancel").onclick = () => $("#dlg-settings").close();
+$("#form-settings").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const b = $("#set-save"); b.disabled = true; $("#set-msg").textContent = "";
+  try {
+    const st = await api("/settings", { method: "PUT", body: {
+      inbox_dir: $("#set-inbox").value, git_push: $("#set-git").checked,
+      wikilink_author: $("#set-wiki").checked, refresh_minutes: +$("#set-refresh").value } });
+    fillSettings(st); $("#dlg-settings").close(); toast("Settings saved");
+  } catch (e) { $("#set-msg").textContent = e.message; }
+  b.disabled = false;
+});
+
 /* ---------- wiring ---------- */
 $("#nav").addEventListener("click", (e) => {
   const c = e.target.closest("[data-fold]");

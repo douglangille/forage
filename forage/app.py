@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import html
+import os
 import sqlite3
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -21,6 +22,32 @@ def create_app(cfg: Config | None = None) -> FastAPI:
     conn = db.connect(cfg.db_path)
     lock = asyncio.Lock()  # one refresh at a time
 
+    # ---- settings: saved in the database, with the environment supplying defaults ----
+    def setting(key: str, default: str) -> str:
+        row = conn.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
+        return row["value"] if row else default
+
+    def inbox_dir() -> Path:
+        return Path(setting("inbox_dir", str(cfg.inbox_dir))).expanduser()
+
+    def wikilink_author() -> bool:
+        return setting("wikilink_author", "1" if cfg.wikilink_author else "0") == "1"
+
+    def refresh_minutes() -> int:
+        try:
+            return max(5, int(setting("refresh_minutes", str(cfg.refresh_minutes))))
+        except ValueError:
+            return cfg.refresh_minutes
+
+    def git_enabled() -> bool:
+        return setting("git_push", "1" if cfg.git_root else "0") == "1"
+
+    def git_root() -> Path | None:
+        """The checkout to commit in. The env-configured root wins while the inbox is unchanged from it."""
+        if cfg.git_root and inbox_dir() == cfg.inbox_dir:
+            return cfg.git_root
+        return clip.git_toplevel(inbox_dir())
+
     async def refresh() -> int:
         if lock.locked():
             return 0
@@ -29,7 +56,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
 
     async def poller():
         while True:
-            await asyncio.sleep(cfg.refresh_minutes * 60)
+            await asyncio.sleep(refresh_minutes() * 60)
             try:
                 await refresh()
             except Exception:
@@ -72,6 +99,56 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         async with feeds.client(cfg) as http:
             await feeds.refresh_feed(conn, cfg, http, row)
         return dict(conn.execute("SELECT * FROM feeds WHERE id=?", (row["id"],)).fetchone()) | {"added": bool(cur.rowcount)}
+
+    def settings_view() -> dict:
+        inbox = inbox_dir()
+        root = git_root()
+        return {
+            "inbox_dir": str(inbox),
+            "inbox_exists": inbox.is_dir(),
+            "inbox_writable": os.access(inbox if inbox.exists() else inbox.parent, os.W_OK),
+            "git_push": git_enabled(),
+            "git_root": str(root) if root else None,
+            "sync_script": bool(cfg.sync_script),
+            "wikilink_author": wikilink_author(),
+            "refresh_minutes": refresh_minutes(),
+        }
+
+    @app.get("/api/settings")
+    def get_settings():
+        return settings_view()
+
+    @app.put("/api/settings")
+    def put_settings(body: dict = Body(...)):
+        updates: dict[str, str] = {}
+        if "inbox_dir" in body:
+            raw = str(body["inbox_dir"]).strip()
+            p = Path(raw).expanduser()
+            if not raw or not p.is_absolute():
+                raise HTTPException(422, "Inbox folder must be an absolute path")
+            try:
+                p.mkdir(parents=True, exist_ok=True)
+            except OSError as exc:
+                raise HTTPException(422, f"Can't use that folder: {exc.strerror or exc}")
+            if not os.access(p, os.W_OK):
+                raise HTTPException(422, "That folder isn't writable by Forage")
+            updates["inbox_dir"] = str(p)
+        if "git_push" in body:
+            updates["git_push"] = "1" if body["git_push"] else "0"
+        if "wikilink_author" in body:
+            updates["wikilink_author"] = "1" if body["wikilink_author"] else "0"
+        if "refresh_minutes" in body:
+            try:
+                n = int(body["refresh_minutes"])
+            except (TypeError, ValueError):
+                raise HTTPException(422, "Refresh interval must be a number of minutes")
+            if not 5 <= n <= 1440:
+                raise HTTPException(422, "Refresh interval must be between 5 and 1440 minutes")
+            updates["refresh_minutes"] = str(n)
+        for k, v in updates.items():
+            conn.execute("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (k, v))
+        conn.commit()
+        return settings_view()
 
     @app.get("/api/find")
     async def find_feeds(q: str = Query(..., min_length=1)):
@@ -232,15 +309,18 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         if row["saved_path"]:
             return {"path": row["saved_path"], "already": True}
         html = await _article_html(row)
-        path = clip.write(cfg.inbox_dir, dict(row), html, cfg.wikilink_author)
+        path = clip.write(inbox_dir(), dict(row), html, wikilink_author())
         conn.execute("UPDATE entries SET saved_path=?, is_read=1 WHERE id=?", (path.name, eid))
         conn.commit()
-        if cfg.git_root:
-            asyncio.create_task(_publish(path, row["title"]))  # background: don't make the tap wait on a push
+        root = git_root() if git_enabled() else None
+        if root:
+            asyncio.create_task(_publish(root, path, row["title"]))  # background: don't make the tap wait on a push
         return {"path": path.name, "already": False}
 
-    async def _publish(path: Path, title: str):
-        err = await asyncio.to_thread(clip.commit_and_push, cfg.git_root, path, title, cfg.sync_script)
+    async def _publish(root: Path, path: Path, title: str):
+        # The sync hook is server-side only (env): letting the UI set a script would be remote code execution.
+        script = cfg.sync_script if root == cfg.git_root else None
+        err = await asyncio.to_thread(clip.commit_and_push, root, path, title, script)
         if err:
             print(f"forage: git publish of {path.name} failed: {err}", flush=True)
 
