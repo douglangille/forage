@@ -295,18 +295,36 @@ $("#btn-markall").onclick = async () => {
 let qTimer;
 $("#q").addEventListener("input", (e) => { clearTimeout(qTimer); qTimer = setTimeout(() => { S.q = e.target.value.trim(); loadEntries(); }, 250); });
 
-$("#btn-add").onclick = () => { setMenu(false); $("#add-msg").textContent = ""; $("#add-url").value = ""; $("#dlg-add").showModal(); $("#add-url").focus(); };
+function openFind() { setMenu(false); $("#add-msg").textContent = ""; $("#results").innerHTML = ""; $("#dlg-add").showModal(); $("#add-url").focus(); }
+$("#btn-add").onclick = openFind;
+$("#manage-find").onclick = () => { $("#dlg-manage").close(); openFind(); };
 $("#add-cancel").onclick = () => $("#dlg-add").close();
+let found = [];
+function resultHtml(r, i) {
+  const d = new Date(r.latest);
+  const bits = [r.source, r.items ? `${r.items} posts` : "", isNaN(d) ? "" : "latest " + ago(d.toISOString()), r.subscribers ? r.subscribers.toLocaleString() + " readers" : ""].filter(Boolean);
+  return `<li><div class="info"><div class="ttl">${esc(r.title)}</div><div class="sub">${esc(bits.join(" · "))}</div>${r.description ? `<div class="desc">${esc(r.description)}</div>` : ""}</div>
+    <button type="button" data-i="${i}" ${r.subscribed ? "disabled" : ""}>${r.subscribed ? "Added ✓" : "Add"}</button></li>`;
+}
 $("#form-add").addEventListener("submit", async (ev) => {
   ev.preventDefault();
-  const go = $("#add-go"); go.disabled = true; $("#add-msg").textContent = "Looking for a feed…";
+  const go = $("#add-go"); go.disabled = true; $("#add-msg").textContent = "Searching…"; $("#results").innerHTML = "";
   try {
-    const f = await api("/feeds", { method: "POST", body: { url: $("#add-url").value, folder: $("#add-folder").value } });
-    $("#dlg-add").close();
-    toast(f.added ? "Added " + (f.title || f.url) : "Already subscribed");
-    await loadFeeds(); await loadEntries();
+    found = await api("/find?q=" + encodeURIComponent($("#add-url").value));
+    $("#add-msg").textContent = found.length ? "" : "Nothing found. Try the site's address, or different words.";
+    $("#results").innerHTML = found.map(resultHtml).join("");
   } catch (e) { $("#add-msg").textContent = e.message; }
   go.disabled = false;
+});
+$("#results").addEventListener("click", async (e) => {
+  const b = e.target.closest("button[data-i]"); if (!b) return;
+  const r = found[+b.dataset.i];
+  b.disabled = true; b.textContent = "Adding…";
+  try {
+    await api("/feeds", { method: "POST", body: { url: r.url, folder: $("#add-folder").value } });
+    r.subscribed = true; b.textContent = "Added ✓";
+    await loadFeeds(); await loadEntries();
+  } catch (err) { b.disabled = false; b.textContent = "Add"; $("#add-msg").textContent = err.message; }
 });
 $("#btn-manage").onclick = () => { setMenu(false); renderManage(); $("#dlg-manage").showModal(); };
 $("#manage-close").onclick = () => $("#dlg-manage").close();

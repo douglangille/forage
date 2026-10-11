@@ -145,3 +145,14 @@ dialog input[type=text] { display: block; width: 100%; margin-top: 4px; padding:
   #art-title { font-size: 24px; }
   .prose { font-size: 17px; }
 }
+
+.searchrow { display: flex; gap: 8px; margin-bottom: 10px; }
+.searchrow input { flex: 1; min-width: 0; margin: 0; }
+#results { list-style: none; margin: 8px 0 0; padding: 0; max-height: 46vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+#results li { display: flex; gap: 10px; align-items: flex-start; padding: 10px 0; border-top: 1px solid var(--line); }
+#results .info { flex: 1; min-width: 0; }
+#results .ttl { font-weight: 600; overflow-wrap: anywhere; }
+#results .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+#results .desc { color: var(--muted); font-size: 13px; margin-top: 3px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+#results button { flex: none; border: 1px solid var(--accent); color: var(--accent); background: none; border-radius: 9px; padding: 5px 12px; }
+#results button:disabled { border-color: var(--line); color: var(--muted); }

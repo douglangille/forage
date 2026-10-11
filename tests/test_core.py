@@ -83,3 +83,13 @@ def test_commit_and_push(tmp_path):
     assert clip.commit_and_push(work, p, "T", None) == ""
     assert git("log", "-1", "--format=%s", cwd=bare) .strip() == "Clip: T"
     assert "other.md" in git("status", "--porcelain", cwd=work)
+
+
+def test_platform_candidates_and_dedupe():
+    from forage import search
+    assert search.platform_candidates("https://github.com/o/r") == ["https://github.com/o/r/releases.atom", "https://github.com/o/r/commits.atom"]
+    assert search.platform_candidates("https://www.reddit.com/r/selfhosted/top") == ["https://www.reddit.com/r/selfhosted/.rss"]
+    assert search.platform_candidates("https://foo.substack.com/p/x") == ["https://foo.substack.com/feed"]
+    assert search.platform_candidates("https://example.com/") == []
+    assert search.norm("https://www.Example.com/feed/") == search.norm("http://example.com/feed")
+    assert search.looks_like_url("simonwillison.net") and not search.looks_like_url("ethan mollick")

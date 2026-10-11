@@ -24,7 +24,7 @@
     </header>
     <nav id="nav"></nav>
     <footer class="side-foot">
-      <button id="btn-add" class="linkish">+ Add feed</button>
+      <button id="btn-add" class="linkish">+ Find feeds</button>
       <button id="btn-manage" class="linkish">Manage</button>
     </footer>
   </aside>
@@ -69,18 +69,23 @@
 
 <dialog id="dlg-add">
   <form method="dialog" id="form-add">
-    <h3>Add feed</h3>
-    <label>Site or feed URL <input id="add-url" type="text" inputmode="url" autocapitalize="off" autocorrect="off" required placeholder="https://example.com"></label>
-    <label>Folder (optional) <input id="add-folder" type="text" list="folders" autocapitalize="words"></label>
+    <h3>Find feeds</h3>
+    <div class="searchrow">
+      <input id="add-url" type="text" inputmode="search" autocapitalize="off" autocorrect="off" required placeholder="Keywords, a site, or a feed address" aria-label="Search or address">
+      <button class="primary" id="add-go">Search</button>
+    </div>
+    <label>Add to folder (optional) <input id="add-folder" type="text" list="folders" autocapitalize="words"></label>
     <datalist id="folders"></datalist>
     <p id="add-msg" class="msg"></p>
-    <div class="row"><button type="button" class="linkish" id="add-cancel">Cancel</button><button class="primary" id="add-go">Add</button></div>
+    <ul id="results"></ul>
+    <div class="row"><button type="button" class="linkish" id="add-cancel">Close</button></div>
   </form>
 </dialog>
 
 <dialog id="dlg-manage">
   <h3>Manage feeds</h3>
   <div class="row wrap">
+    <button class="btn linkish" id="manage-find">Find feeds…</button>
     <label class="btn linkish">Import OPML<input type="file" id="opml-file" accept=".opml,.xml,text/xml" hidden></label>
     <a class="btn linkish" href="/api/opml" download="forage.opml">Export OPML</a>
   </div>

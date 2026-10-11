@@ -7,7 +7,7 @@ from fastapi import Body, FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import clip, db, extract, feeds, opml
+from . import clip, db, extract, feeds, opml, search
 from .config import Config, load
 
 STATIC = Path(__file__).parent / "static"
@@ -70,6 +70,13 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         async with feeds.client(cfg) as http:
             await feeds.refresh_feed(conn, cfg, http, row)
         return dict(conn.execute("SELECT * FROM feeds WHERE id=?", (row["id"],)).fetchone()) | {"added": bool(cur.rowcount)}
+
+    @app.get("/api/find")
+    async def find_feeds(q: str = Query(..., min_length=1)):
+        async with feeds.client(cfg) as http:
+            results = await search.search(http, q)
+        have = {search.norm(r["url"]) for r in conn.execute("SELECT url FROM feeds")}
+        return [r | {"subscribed": search.norm(r["url"]) in have} for r in results]
 
     @app.patch("/api/feeds/{fid}")
     def patch_feed(fid: int, body: dict = Body(...)):
