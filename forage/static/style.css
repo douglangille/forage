@@ -114,7 +114,7 @@ a { color: var(--accent); }
 #art-pad, #pager { display: none; }
 #app[data-focus="1"] .art-scroll { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; padding: 20px 28px calc(40px + var(--sab)); }
 #app[data-focus="1"] .art-scroll::-webkit-scrollbar { display: none; }
-#app[data-focus="1"] .art-body { max-width: none; margin: 0; height: 100%; column-width: 60ch; column-gap: 3.5em; column-fill: auto; }
+#app[data-focus="1"] .art-body { max-width: none; margin: 0; height: 100%; column-count: var(--cols, 1); column-gap: 3.5em; column-fill: auto; }
 #app[data-focus="1"] #art-pad { display: block; position: absolute; top: 0; width: 1px; height: 1px; visibility: hidden; }
 #app[data-focus="1"] .prose img { max-height: calc(100dvh - 200px); width: auto; max-width: 100%; object-fit: contain; }
 #app[data-focus="1"] .prose img, #app[data-focus="1"] .prose figure, #app[data-focus="1"] .prose blockquote, #app[data-focus="1"] .prose pre { break-inside: avoid; }

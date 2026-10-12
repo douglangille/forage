@@ -302,8 +302,20 @@ function findAnchor(m) {
   }
   return null;
 }
+// Columns are about 60ch, but never fewer than two once there's room for two at 45ch or more (column-width alone would stretch one wide column).
+function setColumns() {
+  const body = document.querySelector(".art-body");
+  const gap = parseFloat(getComputedStyle(body).columnGap) || 0;
+  const probe = document.createElement("div");
+  probe.style.cssText = "position:absolute;visibility:hidden;width:60ch";
+  body.appendChild(probe);
+  const ideal = probe.offsetWidth;
+  probe.remove();
+  body.style.setProperty("--cols", String(Math.max(1, Math.round((body.clientWidth + gap) / (ideal + gap)))));
+}
 function layoutPaging() {
   if (!focusOn()) return;
+  setColumns();
   const m = pagerMetrics();
   // Without this, a short last page can't be scrolled to its own start.
   $("#art-pad").style.left = (m.padL + m.pages * m.stride - m.gap + m.padR - 1) + "px";
