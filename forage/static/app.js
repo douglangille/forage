@@ -315,13 +315,17 @@ function saveAnchor(m) {
   }
   S.anchor = r && m.body.contains(r.startContainer) ? { range: r } : null;
 }
-// Vertical (non-focus) reading position: the first block whose bottom is below the top edge.
-function blockAtTop() {
-  const top = $("#art-scroll").getBoundingClientRect().top + 4;
-  for (const el of [$("#art-meta"), $("#art-title"), ...$("#art-content").children]) {
-    for (const r of el.getClientRects()) if (r.bottom > top) return el;
+// Vertical (non-focus) reading position: the text point just under the top edge of the article.
+function saveVerticalAnchor() {
+  const sc = $("#art-scroll"), sr = sc.getBoundingClientRect(), br = document.querySelector(".art-body").getBoundingClientRect();
+  const x = br.left + 4, y = sr.top + (parseFloat(getComputedStyle(sc).paddingTop) || 0) + 4;
+  let r = null;
+  if (document.caretRangeFromPoint) r = document.caretRangeFromPoint(x, y);
+  else if (document.caretPositionFromPoint) {
+    const c = document.caretPositionFromPoint(x, y);
+    if (c) { r = document.createRange(); r.setStart(c.offsetNode, c.offset); r.collapse(true); }
   }
-  return null;
+  S.anchor = r && document.querySelector(".art-body").contains(r.startContainer) ? { range: r } : null;
 }
 function anchorEl() {
   const a = S.anchor;
@@ -360,9 +364,10 @@ function layoutPaging() {
   // Without this, a short last page can't be scrolled to its own start.
   $("#art-pad").style.left = (m.padL + m.pages * m.stride - m.gap + m.padR - 1) + "px";
   if (!S.moving) {   // never fight a page turn in flight; settle() re-anchors when it ends
-    const r = S.anchor && anchorRect();
-    if (r) m.sc.scrollLeft = clampPage(m, Math.floor((r.left - m.bodyRect.left + 2) / m.stride)) * m.stride;
-    else m.sc.scrollLeft = Math.min(m.sc.scrollLeft, (m.pages - 1) * m.stride);
+    const r = S.anchor && anchorRect(), was = m.sc.scrollLeft;
+    // Reflow scrolls (ours or the browser's clamping) must not re-anchor: only a page turn or the reader's own scroll does (S.saveOK).
+    m.sc.scrollLeft = r ? clampPage(m, Math.floor((r.left - m.bodyRect.left + 2) / m.stride)) * m.stride : Math.min(was, (m.pages - 1) * m.stride);
+
   }
   updatePager();
 }
@@ -380,11 +385,11 @@ function settle() {
     return;
   }
   S.snapped = false; S.moving = false;
-  saveAnchor(m);
+  if (S.saveOK) { S.saveOK = false; saveAnchor(m); }
   updatePager();
 }
 function goPage(p, smooth = true) {
-  S.edgeArmed = 0;
+  S.edgeArmed = 0; S.saveOK = true;
   const m = pagerMetrics();
   S.target = clampPage(m, p);
   S.moving = true;
@@ -424,13 +429,13 @@ function syncFocus() {
 function setFocus(on) {
   const m = focusOn() ? pagerMetrics() : null;
   if (m) saveAnchor(m);
-  else { const el = blockAtTop(); S.anchor = el ? { el } : null; }
+  else saveVerticalAnchor();
   S.focus = on;
   try { localStorage.setItem("forage.focus", on ? "1" : "0"); } catch {}
   syncFocus();
   if (!on) requestAnimationFrame(() => {
-    const el = anchorEl(), sc = $("#art-scroll");
-    if (el) sc.scrollTop = Math.max(0, el.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - 8);
+    const r = anchorRect(), sc = $("#art-scroll");
+    if (r) sc.scrollTop = Math.max(0, r.top - sc.getBoundingClientRect().top + sc.scrollTop - 24);
     S.anchor = null;
   });
 }
@@ -444,10 +449,11 @@ function setFocus(on) {
     settleT = setTimeout(settle, S.moving ? 450 : 140);
   }, { passive: true });
   // Touching the page takes over from a programmatic turn.
-  sc.addEventListener("touchstart", () => { S.target = null; S.moving = false; }, { passive: true });
+  sc.addEventListener("touchstart", () => { S.target = null; S.moving = false; S.ptr = "touch"; S.saveOK = true; }, { passive: true });
   sc.addEventListener("pointerdown", (e) => { S.ptr = e.pointerType; }, { passive: true });
   // A mouse wheel or trackpad flick turns one page. Momentum events keep refreshing wheelAt, so one flick is one page.
   sc.addEventListener("wheel", (e) => {
+    S.saveOK = true;
     if (!focusOn() || e.ctrlKey || e.metaKey || Math.abs(e.deltaY) <= Math.abs(e.deltaX) || Math.abs(e.deltaY) < 4) return;
     const inner = e.target.closest?.("pre, table");
     if (inner && (inner.scrollHeight > inner.clientHeight + 1 || inner.scrollWidth > inner.clientWidth + 1)) return;
