@@ -107,13 +107,13 @@ a { color: var(--accent); }
 #article { position: relative; display: flex; flex-direction: column; min-height: 0; flex: 1; }
 .art-head { border-bottom: 1px solid var(--line); background: var(--bg); }
 .art-scroll { overflow-y: auto; flex: 1; -webkit-overflow-scrolling: touch; padding: 24px 20px calc(48px + var(--sab)); position: relative; }
-/* Line length is the readability guard: the measure is in ch, so it tracks the font size and stays about 60-65 characters at any A-/A+ setting. */
-.art-body { font-size: var(--read-size, 18px); max-width: 60ch; margin: 0 auto; }
-/* Focus mode: the article fills the window as horizontal pages of 60ch columns (as many as fit). app.js does the paging. */
+/* Line length is the readability guard: the measure is in ch, so it tracks the font size and stays about 66-72 characters at any A-/A+ setting. */
+.art-body { font-size: var(--read-size, 18px); max-width: 66ch; margin: 0 auto; }
+/* Focus mode: the article fills the window as horizontal pages of columns up to 66ch wide (app.js picks the count). app.js does the paging. */
 #art-pad, #pager { display: none; }
 #app[data-focus="1"] .art-scroll { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; padding: 20px calc(28px + env(safe-area-inset-right, 0px)) calc(40px + var(--sab)) calc(28px + env(safe-area-inset-left, 0px)); }
 #app[data-focus="1"] .art-scroll::-webkit-scrollbar { display: none; }
-#app[data-focus="1"] .art-body { max-width: none; margin: 0; height: 100%; column-count: var(--cols, 1); column-gap: 3.5em; column-fill: auto; }
+#app[data-focus="1"] .art-body { max-width: none; margin: 0 auto; height: 100%; column-count: var(--cols, 1); column-gap: 3.5em; column-fill: auto; }
 #app[data-focus="1"] #art-pad { display: block; position: absolute; top: 0; width: 1px; height: 1px; visibility: hidden; }
 #app[data-focus="1"] .prose img { max-height: calc(100dvh - 200px); width: auto; max-width: 100%; object-fit: contain; }
 #app[data-focus="1"] .prose img, #app[data-focus="1"] .prose figure, #app[data-focus="1"] .prose blockquote, #app[data-focus="1"] .prose pre { break-inside: avoid; }

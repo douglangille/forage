@@ -10,7 +10,7 @@ const S = {
 };
 try { S.unreadOnly = localStorage.getItem("forage.unreadOnly") !== "0"; } catch {}
 
-// Reader text size, per device. The 60ch measure in CSS scales with it, so line length stays constant.
+// Reader text size, per device. The 66ch measure in CSS scales with it, so line length stays constant.
 const FS = { min: 14, max: 28, def: 18 };
 let readSize = FS.def;
 try { const v = parseInt(localStorage.getItem("forage.readSize"), 10); if (v >= FS.min && v <= FS.max) readSize = v; } catch {}
@@ -276,7 +276,7 @@ function step(d) {
 }
 
 /* ---------- focus mode: paged columns ---------- */
-// The article becomes horizontal pages of ~60ch columns. The browser lays out the columns and scrolls natively (swipe, trackpad);
+// The article becomes horizontal pages of columns up to 66ch wide. The browser lays out the columns and scrolls natively (swipe, trackpad);
 // this block turns pages, snaps to a page boundary, shows "n / N", and keeps your place across reflows (resize, A-/A+, images
 // loading) by remembering the text point at the top-left of the page.
 S.focus = false;
@@ -343,18 +343,22 @@ function anchorRect() {
   }
   return anchorEl()?.getClientRects()[0] || null;
 }
-// Columns are about 60ch each, never narrower than 45ch (column-width alone would stretch one wide column instead of making two).
+// A column is never wider than 66ch (the line-length cap, same as the scrolling view) nor narrower than 45ch. The column count is the
+// fewest that keeps every column under the cap, and when there's room to spare the whole block is capped and centered.
 function setColumns() {
   const body = document.querySelector(".art-body");
   const gap = parseFloat(getComputedStyle(body).columnGap) || 0;
   const probe = document.createElement("div");
-  probe.style.cssText = "position:absolute;visibility:hidden;width:60ch";
+  probe.style.cssText = "position:absolute;visibility:hidden;width:66ch";
   body.appendChild(probe);
-  const ideal = probe.offsetWidth;
+  const cap = probe.offsetWidth;
   probe.remove();
+  body.style.maxWidth = "none";
   const w = body.getBoundingClientRect().width;
-  let n = Math.max(1, Math.round((w + gap) / (ideal + gap)));
-  while (n > 1 && (w - (n - 1) * gap) / n < ideal * 0.75) n--;
+  let n = Math.max(1, Math.ceil((w + gap) / (cap + gap)));
+  while (n > 1 && (w - (n - 1) * gap) / n < cap * 0.68) n--;
+  const col = (w - (n - 1) * gap) / n;
+  body.style.maxWidth = col > cap ? n * cap + (n - 1) * gap + "px" : "none";
   body.style.setProperty("--cols", String(n));
 }
 function layoutPaging() {
@@ -422,6 +426,7 @@ function syncFocus() {
   $("#btn-focus").setAttribute("aria-pressed", S.focus ? "true" : "false");
   $("#btn-focus").textContent = S.focus ? "⤡" : "⤢";
   $("#art-scroll").scrollLeft = 0;
+  if (!on) { const b = document.querySelector(".art-body"); b.style.maxWidth = ""; b.style.removeProperty("--cols"); }
   S.target = null; S.moving = false;
   requestAnimationFrame(() => layoutPaging());
 }
