@@ -326,6 +326,7 @@ function layoutPaging() {
   updatePager();
 }
 function goPage(p, smooth = true) {
+  S.edgeArmed = 0;
   const m = pagerMetrics();
   m.sc.scrollTo({ left: Math.min(m.pages - 1, Math.max(0, p)) * m.stride, behavior: smooth ? "smooth" : "instant" });
   S.anchor = findAnchor(m);
@@ -335,6 +336,15 @@ function turn(d) {
   if (t >= 0 && t < m.pages) { goPage(t); return; }
   const i = S.entries.findIndex((x) => x.id === S.cur), j = i + (d > 0 ? 1 : -1);
   if (i < 0 || j < 0 || j >= S.entries.length) return;
+  // The first step past an end only announces the neighbour; a second one within a few seconds goes there.
+  if (S.edgeArmed !== d) {
+    S.edgeArmed = d;
+    clearTimeout(S.edgeT);
+    S.edgeT = setTimeout(() => { S.edgeArmed = 0; }, 5000);
+    toast((d > 0 ? "End. Again for next: " : "Start. Again for previous: ") + (S.entries[j].title || "untitled"));
+    return;
+  }
+  S.edgeArmed = 0;
   S.pendingLast = d < 0;
   step(d > 0 ? 1 : -1);
 }
