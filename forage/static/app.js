@@ -173,7 +173,8 @@ async function openEntry(id, { fromList = true } = {}) {
   $("#art-meta").textContent = e ? e.feed_title : "";
   $("#art-content").innerHTML = '<p class="meta">Loading…</p>';
   $("#art-scroll").scrollTop = 0;
-  S.anchor = null;
+  S.anchor = null; S.edgeArmed = 0;
+  if (S.pendingLast !== id) S.pendingLast = null;
   syncFocus();
   if (S.narrow && fromList) { history.pushState({ view: "reader" }, ""); setView("reader"); }
   try {
@@ -186,8 +187,8 @@ async function openEntry(id, { fromList = true } = {}) {
     $("#art-content").querySelectorAll("a").forEach((l) => (l.target = "_blank"));
     requestAnimationFrame(() => {
       layoutPaging();
-      if (S.pendingLast) goPage(Infinity, false);
-      S.pendingLast = false;
+      if (S.pendingLast === id) goPage(Infinity, false);
+      if (S.pendingLast === id) S.pendingLast = null;
     });
     $("#btn-open").hidden = !a.url;
     if (a.url) $("#btn-open").href = a.url;
@@ -197,6 +198,7 @@ async function openEntry(id, { fromList = true } = {}) {
     if (e) { const was = !e.is_read; e.is_read = 1; e.starred = a.starred; patchRow(e); if (was) bump(e.feed_id, -1); }
     setReadBtn(true);
   } catch (err) {
+    if (S.pendingLast === id) S.pendingLast = null;
     $("#art-content").innerHTML = `<p class="meta">Couldn't load this one: ${esc(err.message)}</p>`;
   }
 }
@@ -274,35 +276,70 @@ function step(d) {
 }
 
 /* ---------- focus mode: paged columns ---------- */
-// The article becomes horizontal pages of 60ch columns. The browser lays out the columns and scrolls natively (swipe, trackpad);
-// this block turns pages, snaps to a page boundary, shows "n / N", and keeps your place across resizes by remembering a paragraph.
+// The article becomes horizontal pages of ~60ch columns. The browser lays out the columns and scrolls natively (swipe, trackpad);
+// this block turns pages, snaps to a page boundary, shows "n / N", and keeps your place across reflows (resize, A-/A+, images
+// loading) by remembering the text point at the top-left of the page.
 S.focus = false;
 try { S.focus = localStorage.getItem("forage.focus") === "1"; } catch {}
-const focusOn = () => $("#app").dataset.focus === "1";
+const focusOn = () => $("#app").dataset.focus === "1" && (!S.narrow || $("#app").dataset.view === "reader");
+const reduceMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 function pagerMetrics() {
   const sc = $("#art-scroll"), body = document.querySelector(".art-body");
+  const bodyRect = body.getBoundingClientRect();
   const gap = parseFloat(getComputedStyle(body).columnGap) || 0;
-  const stride = body.clientWidth + gap;
-  const x = $("#art-end").getBoundingClientRect().left - body.getBoundingClientRect().left;
+  const stride = bodyRect.width + gap;
+  // The last content box tells us how many pages there are, and it can't create a blank page the way a trailing sentinel can.
+  const rg = document.createRange();
+  rg.selectNodeContents(body);
+  let x = 0;
+  for (const r of rg.getClientRects()) if (r.width > 0 || r.height > 0) x = Math.max(x, r.left - bodyRect.left);
   const pages = Math.max(1, Math.floor((x + 2) / stride) + 1);
   const cs = getComputedStyle(sc);
-  return { sc, body, gap, stride, pages, padL: parseFloat(cs.paddingLeft) || 0, padR: parseFloat(cs.paddingRight) || 0 };
+  return { sc, body, bodyRect, gap, stride, pages, padL: parseFloat(cs.paddingLeft) || 0, padR: parseFloat(cs.paddingRight) || 0, padT: parseFloat(cs.paddingTop) || 0 };
 }
-function pageOfScroll(m) { return Math.min(m.pages - 1, Math.max(0, Math.round(m.sc.scrollLeft / m.stride))); }
+const clampPage = (m, p) => Math.min(m.pages - 1, Math.max(0, p));
+const pageOfScroll = (m) => clampPage(m, Math.round(m.sc.scrollLeft / m.stride));
 function updatePager() {
   if (!focusOn()) return;
   const m = pagerMetrics();
-  $("#pg-n").textContent = `${pageOfScroll(m) + 1} / ${m.pages}`;
+  $("#pg-n").textContent = `${(S.target ?? pageOfScroll(m)) + 1} / ${m.pages}`;
 }
-// First block that reaches the left edge of the current page.
-function findAnchor(m) {
-  const left = m.sc.getBoundingClientRect().left + m.padL + 4;
+// The anchor is a collapsed Range at the text point under the page's top-left corner (or {el} for a block when there is none).
+function saveAnchor(m) {
+  const x = m.sc.getBoundingClientRect().left + m.padL + 2, y = m.sc.getBoundingClientRect().top + m.padT + 8;
+  let r = null;
+  if (document.caretRangeFromPoint) r = document.caretRangeFromPoint(x, y);
+  else if (document.caretPositionFromPoint) {
+    const c = document.caretPositionFromPoint(x, y);
+    if (c) { r = document.createRange(); r.setStart(c.offsetNode, c.offset); r.collapse(true); }
+  }
+  S.anchor = r && m.body.contains(r.startContainer) ? { range: r } : null;
+}
+// Vertical (non-focus) reading position: the first block whose bottom is below the top edge.
+function blockAtTop() {
+  const top = $("#art-scroll").getBoundingClientRect().top + 4;
   for (const el of [$("#art-meta"), $("#art-title"), ...$("#art-content").children]) {
-    for (const r of el.getClientRects()) if (r.width > 0 && r.right > left) return el;
+    for (const r of el.getClientRects()) if (r.bottom > top) return el;
   }
   return null;
 }
-// Columns are about 60ch, but never fewer than two once there's room for two at 45ch or more (column-width alone would stretch one wide column).
+function anchorEl() {
+  const a = S.anchor;
+  if (a?.el?.isConnected) return a.el;
+  if (a?.range?.startContainer.isConnected) { const n = a.range.startContainer; return n.nodeType === 1 ? n : n.parentElement; }
+  return null;
+}
+function anchorRect() {
+  const a = S.anchor;
+  if (a?.range?.startContainer.isConnected) {
+    const q = a.range.cloneRange(), n = q.startContainer;
+    if (n.nodeType === 3 && q.startOffset < n.length) q.setEnd(n, q.startOffset + 1);
+    const r = q.getClientRects()[0];
+    if (r) return r;
+  }
+  return anchorEl()?.getClientRects()[0] || null;
+}
+// Columns are about 60ch each, never narrower than 45ch (column-width alone would stretch one wide column instead of making two).
 function setColumns() {
   const body = document.querySelector(".art-body");
   const gap = parseFloat(getComputedStyle(body).columnGap) || 0;
@@ -311,7 +348,10 @@ function setColumns() {
   body.appendChild(probe);
   const ideal = probe.offsetWidth;
   probe.remove();
-  body.style.setProperty("--cols", String(Math.max(1, Math.round((body.clientWidth + gap) / (ideal + gap)))));
+  const w = body.getBoundingClientRect().width;
+  let n = Math.max(1, Math.round((w + gap) / (ideal + gap)));
+  while (n > 1 && (w - (n - 1) * gap) / n < ideal * 0.75) n--;
+  body.style.setProperty("--cols", String(n));
 }
 function layoutPaging() {
   if (!focusOn()) return;
@@ -319,20 +359,42 @@ function layoutPaging() {
   const m = pagerMetrics();
   // Without this, a short last page can't be scrolled to its own start.
   $("#art-pad").style.left = (m.padL + m.pages * m.stride - m.gap + m.padR - 1) + "px";
-  if (S.anchor?.isConnected) {
-    const r = S.anchor.getClientRects()[0];
-    if (r) m.sc.scrollLeft = Math.min(m.pages - 1, Math.max(0, Math.floor((r.left - m.body.getBoundingClientRect().left + 2) / m.stride))) * m.stride;
-  } else m.sc.scrollLeft = Math.min(m.sc.scrollLeft, (m.pages - 1) * m.stride);
+  if (!S.moving) {   // never fight a page turn in flight; settle() re-anchors when it ends
+    const r = S.anchor && anchorRect();
+    if (r) m.sc.scrollLeft = clampPage(m, Math.floor((r.left - m.bodyRect.left + 2) / m.stride)) * m.stride;
+    else m.sc.scrollLeft = Math.min(m.sc.scrollLeft, (m.pages - 1) * m.stride);
+  }
+  updatePager();
+}
+let settleT;
+function settle() {
+  clearTimeout(settleT);
+  if (!focusOn()) { S.moving = false; S.target = null; S.snapped = false; return; }
+  const m = pagerMetrics(), p = S.target != null ? clampPage(m, S.target) : pageOfScroll(m);
+  S.target = null;
+  if (!S.snapped && Math.abs(m.sc.scrollLeft - p * m.stride) > 1) {
+    // Off a page boundary: glide there, then look again. The anchor is only saved once things have stopped moving.
+    S.snapped = true; S.moving = true; S.target = p;
+    m.sc.scrollTo({ left: p * m.stride, behavior: reduceMotion() ? "auto" : "smooth" });
+    settleT = setTimeout(settle, reduceMotion() ? 50 : 450);
+    return;
+  }
+  S.snapped = false; S.moving = false;
+  saveAnchor(m);
   updatePager();
 }
 function goPage(p, smooth = true) {
   S.edgeArmed = 0;
   const m = pagerMetrics();
-  m.sc.scrollTo({ left: Math.min(m.pages - 1, Math.max(0, p)) * m.stride, behavior: smooth ? "smooth" : "instant" });
-  S.anchor = findAnchor(m);
+  S.target = clampPage(m, p);
+  S.moving = true;
+  m.sc.scrollTo({ left: S.target * m.stride, behavior: smooth && !reduceMotion() ? "smooth" : "auto" });
+  updatePager();
+  clearTimeout(settleT);
+  settleT = setTimeout(settle, smooth ? 450 : 50);
 }
 function turn(d) {
-  const m = pagerMetrics(), t = pageOfScroll(m) + d;
+  const m = pagerMetrics(), t = (S.target ?? pageOfScroll(m)) + d;
   if (t >= 0 && t < m.pages) { goPage(t); return; }
   const i = S.entries.findIndex((x) => x.id === S.cur), j = i + (d > 0 ? 1 : -1);
   if (i < 0 || j < 0 || j >= S.entries.length) return;
@@ -345,45 +407,57 @@ function turn(d) {
     return;
   }
   S.edgeArmed = 0;
-  S.pendingLast = d < 0;
+  S.pendingLast = d < 0 ? S.entries[j].id : null;
   step(d > 0 ? 1 : -1);
 }
 function syncFocus() {
   const on = S.focus && !$("#article").hidden;
   $("#app").dataset.focus = on ? "1" : "";
   $("#btn-focus").classList.toggle("on", S.focus);
+  $("#btn-focus").setAttribute("aria-pressed", S.focus ? "true" : "false");
   $("#btn-focus").textContent = S.focus ? "⤡" : "⤢";
   $("#art-scroll").scrollLeft = 0;
+  S.target = null; S.moving = false;
   requestAnimationFrame(() => layoutPaging());
 }
+// Toggling keeps your place: vertical position becomes a page, and a page becomes a vertical position.
 function setFocus(on) {
-  S.focus = on; S.anchor = null;
+  const m = focusOn() ? pagerMetrics() : null;
+  if (m) saveAnchor(m);
+  else { const el = blockAtTop(); S.anchor = el ? { el } : null; }
+  S.focus = on;
   try { localStorage.setItem("forage.focus", on ? "1" : "0"); } catch {}
   syncFocus();
+  if (!on) requestAnimationFrame(() => {
+    const el = anchorEl(), sc = $("#art-scroll");
+    if (el) sc.scrollTop = Math.max(0, el.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - 8);
+    S.anchor = null;
+  });
 }
 {
   const sc = $("#art-scroll");
-  let snapT, wheelAt = 0;
+  let wheelAt = 0;
   sc.addEventListener("scroll", () => {
     if (!focusOn()) return;
     updatePager();
-    clearTimeout(snapT);
-    snapT = setTimeout(() => {
-      const m = pagerMetrics(), p = pageOfScroll(m);
-      if (Math.abs(sc.scrollLeft - p * m.stride) > 1) sc.scrollTo({ left: p * m.stride, behavior: "smooth" });
-      S.anchor = findAnchor(m);
-    }, 140);
+    clearTimeout(settleT);
+    settleT = setTimeout(settle, S.moving ? 450 : 140);
   }, { passive: true });
+  // Touching the page takes over from a programmatic turn.
+  sc.addEventListener("touchstart", () => { S.target = null; S.moving = false; }, { passive: true });
+  sc.addEventListener("pointerdown", (e) => { S.ptr = e.pointerType; }, { passive: true });
   // A mouse wheel or trackpad flick turns one page. Momentum events keep refreshing wheelAt, so one flick is one page.
   sc.addEventListener("wheel", (e) => {
-    if (!focusOn() || Math.abs(e.deltaY) <= Math.abs(e.deltaX) || Math.abs(e.deltaY) < 4) return;
+    if (!focusOn() || e.ctrlKey || e.metaKey || Math.abs(e.deltaY) <= Math.abs(e.deltaX) || Math.abs(e.deltaY) < 4) return;
+    const inner = e.target.closest?.("pre, table");
+    if (inner && (inner.scrollHeight > inner.clientHeight + 1 || inner.scrollWidth > inner.clientWidth + 1)) return;
     e.preventDefault();
     if (e.timeStamp - wheelAt > 220) turn(e.deltaY > 0 ? 1 : -1);
     wheelAt = e.timeStamp;
   }, { passive: false });
-  // Touch: tap the left or right quarter to turn.
+  // Touch: tap the left or right quarter to turn. A trackpad or mouse click does not (S.ptr).
   sc.addEventListener("click", (e) => {
-    if (!focusOn() || !matchMedia("(pointer: coarse)").matches || e.target.closest("a, button, img, pre, table, input")) return;
+    if (!focusOn() || (S.ptr !== "touch" && S.ptr !== "pen") || e.target.closest("a, button, img, pre, table, input, video, audio, iframe, summary, label, details")) return;
     const r = sc.getBoundingClientRect(), f = (e.clientX - r.left) / r.width;
     if (f < 0.25) turn(-1); else if (f > 0.75) turn(1);
   });
@@ -395,7 +469,7 @@ function setFocus(on) {
 }
 
 /* ---------- navigation ---------- */
-function setView(v) { $("#app").dataset.view = v; }
+function setView(v) { $("#app").dataset.view = v; requestAnimationFrame(() => layoutPaging()); }
 function setMenu(open) { $("#app").dataset.menu = open ? "open" : ""; }
 // View state lives in history.state, not the URL hash: a reload used to leave a stale "#e…" that made Back a no-op.
 history.replaceState(null, "", location.pathname);
