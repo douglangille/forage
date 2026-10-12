@@ -10,6 +10,17 @@ const S = {
 };
 try { S.unreadOnly = localStorage.getItem("forage.unreadOnly") !== "0"; } catch {}
 
+// Reader text size, per device. The 54ch measure in CSS scales with it, so line length stays constant.
+const FS = { min: 14, max: 28, def: 18 };
+let readSize = FS.def;
+try { const v = parseInt(localStorage.getItem("forage.readSize"), 10); if (v >= FS.min && v <= FS.max) readSize = v; } catch {}
+function applyReadSize(delta = 0) {
+  readSize = Math.min(FS.max, Math.max(FS.min, readSize + delta));
+  document.documentElement.style.setProperty("--read-size", readSize + "px");
+  try { localStorage.setItem("forage.readSize", String(readSize)); } catch {}
+}
+applyReadSize();
+
 async function api(path, opts = {}) {
   const r = await fetch("/api" + path, {
     method: opts.method || "GET",
@@ -420,6 +431,8 @@ $("#btn-refresh").onclick = refreshAll;
 document.querySelectorAll(".save-btn").forEach((b) => (b.onclick = save));
 $("#btn-star").onclick = toggleStar;
 $("#btn-unread").onclick = toggleRead;
+$("#btn-fs-down").onclick = () => applyReadSize(-1);
+$("#btn-fs-up").onclick = () => applyReadSize(1);
 $("#btn-prev").onclick = () => step(-1);
 $("#btn-next").onclick = () => step(1);
 $("#btn-filter").onclick = () => {
@@ -540,6 +553,7 @@ addEventListener("keydown", (e) => {
   else if (k === "s") save(); else if (k === "m") toggleRead();
   else if (k === "o" && S.art?.url) window.open(S.art.url, "_blank", "noopener");
   else if (k === "r") refreshAll(); else if (k === "u") $("#btn-filter").click();
+  else if (k === "-") applyReadSize(-1); else if (k === "+" || k === "=") applyReadSize(1);
   else if (k === "f") toggleStar(); else if (k === "/") { e.preventDefault(); $("#q").focus(); }
   else return;
 });

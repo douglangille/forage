@@ -1,5 +1,5 @@
 // App shell cache + stale-while-revalidate for read-only API calls, so recent articles open offline.
-const SHELL = "forage-shell-v24";
+const SHELL = "forage-shell-v25";
 const API = "forage-api-v24";
 const THUMBS = "forage-thumbs";  // unversioned: thumbnails are immutable per URL, so they survive shell upgrades
 const THUMBS_MAX = 2000;
