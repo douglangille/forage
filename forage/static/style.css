@@ -104,11 +104,27 @@ a { color: var(--accent); }
 #list-empty, #reader-empty { color: var(--muted); text-align: center; padding: 48px 24px; }
 #reader-empty { margin: auto; }
 
-#article { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+#article { position: relative; display: flex; flex-direction: column; min-height: 0; flex: 1; }
 .art-head { border-bottom: 1px solid var(--line); background: var(--bg); }
-.art-scroll { overflow-y: auto; flex: 1; -webkit-overflow-scrolling: touch; padding: 24px 20px calc(48px + var(--sab)); container-type: inline-size; }
+.art-scroll { overflow-y: auto; flex: 1; -webkit-overflow-scrolling: touch; padding: 24px 20px calc(48px + var(--sab)); position: relative; }
 /* Line length is the readability guard: the measure is in ch, so it tracks the font size and stays about 60-65 characters at any A-/A+ setting. */
 .art-body { font-size: var(--read-size, 18px); max-width: 60ch; margin: 0 auto; }
+/* Focus mode: the article fills the window as horizontal pages of 60ch columns (as many as fit). app.js does the paging. */
+#art-end { height: 0; }
+#art-pad, #pager { display: none; }
+#app[data-focus="1"] .art-scroll { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; padding: 20px 28px calc(40px + var(--sab)); }
+#app[data-focus="1"] .art-scroll::-webkit-scrollbar { display: none; }
+#app[data-focus="1"] .art-body { max-width: none; margin: 0; height: 100%; column-width: 60ch; column-gap: 3.5em; column-fill: auto; }
+#app[data-focus="1"] #art-pad { display: block; position: absolute; top: 0; width: 1px; height: 1px; visibility: hidden; }
+#app[data-focus="1"] .prose img { max-height: calc(100dvh - 200px); width: auto; max-width: 100%; object-fit: contain; }
+#app[data-focus="1"] .prose img, #app[data-focus="1"] .prose figure, #app[data-focus="1"] .prose blockquote, #app[data-focus="1"] .prose pre { break-inside: avoid; }
+#app[data-focus="1"] .prose pre { max-height: calc(100dvh - 200px); overflow: auto; }
+#app[data-focus="1"] .prose h1, #app[data-focus="1"] .prose h2, #app[data-focus="1"] .prose h3, #app[data-focus="1"] .prose h4, #app[data-focus="1"] #art-title { break-after: avoid; }
+#app[data-focus="1"] #pager { display: flex; align-items: center; gap: 4px; position: absolute; left: 50%; bottom: calc(6px + var(--sab)); transform: translateX(-50%); color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+@media (min-width: 900px) {
+  #app[data-focus="1"] { grid-template-columns: 1fr; }
+  #app[data-focus="1"] #side, #app[data-focus="1"] #list-pane { display: none; }
+}
 .meta { color: var(--muted); font-size: 13px; margin: 0 0 6px; }
 #art-title { font: 700 1.5em/1.2 var(--font-read); margin: 0 0 20px; color: var(--love); }
 .prose { font: 1em/1.65 var(--font-read); overflow-wrap: anywhere; }
