@@ -19,6 +19,7 @@ Not affiliated with Obsidian, Readwise or any feed service.
 ## What it does
 
 - **Reading first.** Open an article and get a clean, typeset page. If the feed only carries a summary, Forage fetches the page and extracts the readable text ([trafilatura](https://github.com/adbar/trafilatura)), caches it, and sanitizes it.
+- **Focus mode.** `z`, or the ⤢ button, hides the sidebar and list and pages the article into columns, as many as fit and none wider than 66 characters. Turn pages with the arrow keys, Space, a swipe, or a tap on either screen edge. A first step past the end of an article only announces the next one, and a second opens it. `Esc` exits. A−/A+ (or `-`/`+`) set the text size on each device.
 - **One-tap save to Obsidian.** The checkbox in the article toolbar writes a markdown note to a folder in your vault, in the shape of Obsidian Web Clipper's default template: frontmatter (`title`, `source`, `author`, `published`, `created`, `description`, `tags: clippings`), then `# Title` and the article body.
 - **Optional commit and push.** If the vault is a git checkout, a save can also commit just that file and push it, so phones and other machines pick it up through whatever git sync you already use.
 - **Settings in the app.** Inbox folder, commit-and-push, author style and refresh interval are set from a gear button, with no config file.
@@ -26,7 +27,7 @@ Not affiliated with Obsidian, Readwise or any feed service.
 - **Older articles on demand.** Feeds only carry their latest handful. "Fetch older articles" in a feed's edit dialog tries archived-feed links (RFC 5005), Substack's archive API, WordPress-style `?paged=`, then the site's sitemap, and files what it finds as already read. It never runs on its own.
 - **Folders.** Rename, merge and delete folders, move feeds between them, and collapse them in the sidebar.
 - **OPML** import and export.
-- **Keyboard:** `j`/`k` next and previous, `s` save, `m` toggle read, `f` star, `o` open the original, `u` unread only, `r` refresh, `/` search.
+- **Keyboard:** `j`/`k` next and previous, `s` save, `m` toggle read, `f` star, `o` open the original, `u` unread only, `r` refresh, `/` search, `z` focus mode, `-`/`+` text size. In focus mode, `←`/`→` and Space turn pages.
 - **Looks:** [Rosé Pine](https://rosepinetheme.com) in dark, Rosé Pine Dawn in light, following the system setting. Reading text is set in [Libron](https://github.com/nicoverbruggen/libron), the interface in Source Sans 3, and code in JetBrainsMono Nerd Font Mono. All are self-hosted, so iOS has them.
 - **Installable.** Home Screen app on iOS, with an app-shell cache and recently opened articles available offline.
 
