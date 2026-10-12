@@ -10,7 +10,7 @@ const S = {
 };
 try { S.unreadOnly = localStorage.getItem("forage.unreadOnly") !== "0"; } catch {}
 
-// Reader text size, per device. The 54ch measure in CSS scales with it, so line length stays constant.
+// Reader text size, per device. The 60ch measure in CSS scales with it, so line length stays constant.
 const FS = { min: 14, max: 28, def: 18 };
 let readSize = FS.def;
 try { const v = parseInt(localStorage.getItem("forage.readSize"), 10); if (v >= FS.min && v <= FS.max) readSize = v; } catch {}

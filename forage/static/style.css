@@ -107,7 +107,7 @@ a { color: var(--accent); }
 #article { display: flex; flex-direction: column; min-height: 0; flex: 1; }
 .art-head { border-bottom: 1px solid var(--line); background: var(--bg); }
 .art-scroll { overflow-y: auto; flex: 1; -webkit-overflow-scrolling: touch; padding: 24px 20px calc(48px + var(--sab)); container-type: inline-size; }
-/* Line length is the readability guard: the measure is in ch, so it tracks the font size and stays ~54 characters at any A-/A+ setting. */
+/* Line length is the readability guard: the measure is in ch, so it tracks the font size and stays about 60-65 characters at any A-/A+ setting. */
 .art-body { font-size: var(--read-size, 18px); max-width: 60ch; margin: 0 auto; }
 .meta { color: var(--muted); font-size: 13px; margin: 0 0 6px; }
 #art-title { font: 700 1.5em/1.2 var(--font-read); margin: 0 0 20px; color: var(--love); }
