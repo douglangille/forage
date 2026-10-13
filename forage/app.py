@@ -98,7 +98,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
     @app.get("/api/feeds")
     def list_feeds():
         rows = conn.execute(
-            """SELECT f.*, COALESCE(SUM(CASE WHEN e.is_read=0 THEN 1 END),0) AS unread
+            """SELECT f.*, COALESCE(SUM(CASE WHEN e.is_read=0 THEN 1 END),0) AS unread, MAX(e.published) AS last_post
                FROM feeds f LEFT JOIN entries e ON e.feed_id=f.id GROUP BY f.id
                ORDER BY lower(f.folder), lower(f.title)"""
         ).fetchall()

@@ -543,6 +543,12 @@ async function refreshAll() {
 }
 
 /* ---------- dialogs ---------- */
+const QUIET_DAYS = 365;
+function quietNote(f) {  // a feed that fetches fine but hasn't posted in a year or more
+  const t = Date.parse(f.last_post || "");
+  if (!t || Date.now() - t < QUIET_DAYS * 864e5) return "";
+  return `<br><span class="e q">Quiet since ${new Date(t).toLocaleDateString(undefined, { month: "short", year: "numeric" })}</span>`;
+}
 function renderManage() {
   const groups = {};
   S.feeds.forEach((f) => (groups[f.folder] ||= []).push(f));
@@ -562,7 +568,7 @@ function renderManage() {
           <select class="e-folder">${folderOptions(f.folder)}</select><input class="e-new" type="text" placeholder="New folder name" autocapitalize="words" hidden>
           <div class="row"><button data-cancel>Cancel</button><button class="primary" data-savefeed="${f.id}">Save</button></div></li>`;
       } else {
-        h += `<li class="m-feed" data-id="${f.id}"><span class="t">${esc(f.title || f.url)}${f.error ? `<br><span class="e">${esc(f.error)}</span>` : ""}</span><button data-edit="${f.id}">Edit</button><button class="danger" data-del="${f.id}">Remove</button></li>`;
+        h += `<li class="m-feed" data-id="${f.id}"><span class="t">${esc(f.title || f.url)}${f.error ? `<br><span class="e">${esc(f.error)}</span>` : quietNote(f)}</span><button data-edit="${f.id}">Edit</button><button class="danger" data-del="${f.id}">Remove</button></li>`;
       }
     }
   }

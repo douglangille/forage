@@ -167,6 +167,7 @@ dialog input[type=text], dialog select { display: block; width: 100%; margin-top
 #manage-list li, #org-list li { display: flex; gap: 8px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); }
 #manage-list .t, #org-list .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #manage-list .e { color: var(--love); font-size: 12px; }
+#manage-list .e.q { color: var(--muted); }
 
 #toast { position: fixed; left: 0; right: 0; margin: 0 auto; width: fit-content; max-width: calc(100vw - 32px); text-align: center; overflow-wrap: anywhere; bottom: calc(24px + var(--sab)); transform: translateY(20px); background: var(--ink); color: var(--bg); padding: 9px 16px; border-radius: 4px; opacity: 0; pointer-events: none; transition: .2s; z-index: 50; }
 #toast.show { opacity: 1; transform: none; }

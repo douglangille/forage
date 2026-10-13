@@ -462,3 +462,16 @@ def test_organize_flow(tmp_path, monkeypatch):
         assert c.post("/api/folders/undo").status_code == 404  # one undo, then it's gone
         n = c.post("/api/feeds", json={"url": "https://c.test/feed", "suggest": True}).json()
         assert n["folder"] == "Tech"  # filed by the (faked) model
+
+
+def test_feed_list_carries_last_post(tmp_path, monkeypatch):
+    from forage import feeds
+    async def fake_discover(http, url): return url
+    async def fake_get(self, url, **kw):
+        import httpx
+        return httpx.Response(200, content=RSS, request=httpx.Request("GET", url))
+    monkeypatch.setattr(feeds, "discover", fake_discover)
+    monkeypatch.setattr("httpx.AsyncClient.get", fake_get)
+    with TestClient(create_app(cfg(tmp_path))) as c:
+        c.post("/api/feeds", json={"url": "https://ex.test/feed"})
+        assert c.get("/api/feeds").json()[0]["last_post"].startswith("2026-10-08")
