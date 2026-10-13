@@ -408,16 +408,16 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             if r["image"]:  # the hash busts the browser's long-lived cache when the entry's image changes
                 v = thumbs.key(r["image"])[:10]
                 r["thumb"] = f"/thumb/{r['id']}?v={v}"
-                r["card"] = f"/thumb/{r['id']}?card=1&v={v}"
+                r["card"] = f"/thumb/{r['id']}?card=2&v={v}"
         return rows
 
     @app.get("/thumb/{eid}")
-    async def thumb(eid: int, card: bool = False):
+    async def thumb(eid: int, card: int = 0):
         row = conn.execute("SELECT image FROM entries WHERE id=?", (eid,)).fetchone()
         if not row or not row["image"]:
             raise HTTPException(404, "no image")
         async with feeds.client(cfg) as http:
-            path = await thumbs.get(http, cfg.data_dir / "thumbs", row["image"], card)
+            path = await thumbs.get(http, cfg.data_dir / "thumbs", row["image"], bool(card))
         if not path:
             raise HTTPException(404, "no usable image")
         return FileResponse(path, media_type="image/webp", headers={"Cache-Control": "public, max-age=31536000, immutable"})
