@@ -27,6 +27,7 @@ const ICONS = {
   mail: "M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM22 7l-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7",
   "mail-open": "M21.2 8.4c.5.38.8.97.8 1.6v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V10a2 2 0 0 1 .8-1.6l8-6a2 2 0 0 1 2.4 0zM22 10l-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 10",
   external: "M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6",
+  share: "M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M16 6l-4-4-4 4M12 2v13",
   save: "M12 17V3M6 11l6 6 6-6M19 21H5",  // down to a line: into the inbox
 };
 const svg = (name) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[name]}"/></svg>`;
@@ -199,6 +200,7 @@ async function openEntry(id, { fromList = true } = {}) {
       layoutPaging();
     });
     $("#btn-open").hidden = !a.url;
+    $("#btn-share").hidden = !a.url;
     if (a.url) $("#btn-open").href = a.url;
     $("#btn-star").classList.toggle("on", !!a.starred);
     if (e) { const was = !e.is_read; e.is_read = 1; e.starred = a.starred; patchRow(e); if (was) bump(e.feed_id, -1); }
@@ -232,6 +234,15 @@ async function save() {
   } catch (err) { toast("Save failed: " + err.message); }
   S.saving = false;
   setSaveBtn();
+}
+
+// The system share sheet for the article's own address (not a clip of it). Browsers without one get the link copied.
+async function share() {
+  const a = S.art; if (!a?.url) return;
+  try {
+    if (navigator.share) await navigator.share({ title: a.title, url: a.url });
+    else { await navigator.clipboard.writeText(a.url); toast("Link copied"); }
+  } catch (err) { if (err.name !== "AbortError") toast("Couldn't share: " + err.message); }
 }
 
 async function toggleStar() {
@@ -635,6 +646,7 @@ $("#btn-back").onclick = () => { if (history.state?.view === "reader") history.b
 $("#btn-refresh").onclick = refreshAll;
 document.querySelectorAll(".save-btn").forEach((b) => (b.onclick = save));
 $("#btn-star").onclick = toggleStar;
+$("#btn-share").onclick = share;
 $("#btn-unread").onclick = toggleRead;
 $("#btn-prev").onclick = () => step(-1);
 $("#btn-next").onclick = () => step(1);
