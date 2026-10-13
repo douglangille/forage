@@ -585,6 +585,10 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         page = (STATIC / "index.html").read_text().replace("{{TOUCH_ICON}}", "data:image/png;base64," + icon)
         return Response(page, media_type="text/html", headers={"Cache-Control": "no-cache"})
 
+    @app.get("/favicon.ico")
+    def favicon():  # browsers that skip the <link> tags (Safari on the desktop, bookmarks, feed readers) probe this path
+        return FileResponse(STATIC / "icons" / "icon-192.png", media_type="image/png")
+
     @app.get("/apple-touch-icon.png")
     @app.get("/apple-touch-icon-precomposed.png")
     def touch_icon():  # iOS probes the root path when it doesn't use the <link> tag

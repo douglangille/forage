@@ -245,7 +245,7 @@ dialog input[type=text], dialog select { display: block; width: 100%; margin-top
 #entries li:focus-visible { outline-offset: -2px; }
 
 /* ---------- Today: the list as a magazine of cards ---------- */
-#app[data-scope="today"] #entries { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); grid-auto-flow: dense; gap: 14px; align-content: start; padding: 14px 14px calc(14px + var(--sab)); background: var(--bg); }
+#app[data-scope="today"] #entries { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); grid-auto-flow: dense; grid-auto-rows: max-content; gap: 14px; align-content: start; padding: 14px 14px calc(14px + var(--sab)); background: var(--bg); }
 #entries li.card { display: flex; flex-direction: column; gap: 0; padding: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--raised); content-visibility: auto; contain-intrinsic-size: auto 300px; }
 #entries li.card:hover { background: var(--hover); border-color: var(--line-2); }
 #entries li.card.sel { outline: 2px solid var(--accent); outline-offset: -2px; background: var(--sel); }
