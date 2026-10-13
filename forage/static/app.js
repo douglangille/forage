@@ -10,6 +10,29 @@ const S = {
 };
 try { S.unreadOnly = localStorage.getItem("forage.unreadOnly") !== "0"; } catch {}
 
+// Stroke icons (Lucide shapes), drawn at 24x24 and recoloured by currentColor. Buttons name theirs with data-icon.
+const ICONS = {
+  menu: "M4 6h16M4 12h16M4 18h16",
+  refresh: "M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8M21 3v5h-5",
+  settings: "M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z",
+  pencil: "M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5zM15 5l4 4",
+  "check-all": "M18 6 7 17l-5-5M22 10l-7.5 7.5L13 16",
+  "chevron-left": "m15 18-6-6 6-6",
+  "chevron-right": "m9 18 6-6-6-6",
+  "chevron-up": "m18 15-6-6-6 6",
+  "chevron-down": "m6 9 6 6 6-6",
+  maximize: "M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3",
+  minimize: "M8 3v3a2 2 0 0 1-2 2H3M21 8h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3M16 21v-3a2 2 0 0 1 2-2h3",
+  star: "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z",
+  mail: "M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM22 7l-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7",
+  "mail-open": "M21.2 8.4c.5.38.8.97.8 1.6v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V10a2 2 0 0 1 .8-1.6l8-6a2 2 0 0 1 2.4 0zM22 10l-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 10",
+  external: "M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6",
+  save: "M12 17V3M6 11l6 6 6-6M19 21H5",  // down to a line: into the inbox
+};
+const svg = (name) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[name]}"/></svg>`;
+function setIcon(el, name) { if (el.dataset.icon !== name || !el.firstChild) { el.dataset.icon = name; el.innerHTML = svg(name); } }
+document.querySelectorAll("[data-icon]").forEach((el) => setIcon(el, el.dataset.icon));
+
 async function api(path, opts = {}) {
   const r = await fetch("/api" + path, {
     method: opts.method || "GET",
@@ -161,8 +184,7 @@ async function openEntry(id, { fromList = true } = {}) {
   $("#art-meta").textContent = e ? e.feed_title : "";
   $("#art-content").innerHTML = '<p class="meta">Loading…</p>';
   $("#art-scroll").scrollTop = 0;
-  S.anchor = null; S.edgeArmed = 0;
-  if (S.pendingLast !== id) S.pendingLast = null;
+  S.anchor = null;
   syncFocus();
   if (S.narrow && fromList) { history.pushState({ view: "reader" }, ""); setView("reader"); }
   try {
@@ -175,17 +197,13 @@ async function openEntry(id, { fromList = true } = {}) {
     $("#art-content").querySelectorAll("a").forEach((l) => (l.target = "_blank"));
     requestAnimationFrame(() => {
       layoutPaging();
-      if (S.pendingLast === id) goPage(Infinity, false);
-      if (S.pendingLast === id) S.pendingLast = null;
     });
     $("#btn-open").hidden = !a.url;
     if (a.url) $("#btn-open").href = a.url;
-    $("#btn-star").textContent = a.starred ? "★" : "☆";
     $("#btn-star").classList.toggle("on", !!a.starred);
     if (e) { const was = !e.is_read; e.is_read = 1; e.starred = a.starred; patchRow(e); if (was) bump(e.feed_id, -1); }
     setReadBtn(true);
   } catch (err) {
-    if (S.pendingLast === id) S.pendingLast = null;
     $("#art-content").innerHTML = `<p class="meta">Couldn't load this one: ${esc(err.message)}</p>`;
   }
 }
@@ -195,12 +213,11 @@ function bump(feedId, d) {
   if (f) { f.unread = Math.max(0, f.unread + d); renderNav(); }
 }
 
-const ICON_SAVE = '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3.5"/></svg>';
 // Saving is a one-way push to the inbox, not state the app keeps: the button is always ready, and every press writes a new clip.
 function setSaveBtn(busy = false) {
   document.querySelectorAll(".save-btn").forEach((b) => {
     b.disabled = busy;
-    b.innerHTML = ICON_SAVE;
+    setIcon(b, "save");
     b.title = "Save a clip to the Obsidian inbox (s)";
   });
 }
@@ -225,13 +242,12 @@ async function toggleStar() {
   S.art.starred = v ? 1 : 0;
   const e = S.entries.find((x) => x.id === S.cur);
   if (e) { e.starred = S.art.starred; }
-  $("#btn-star").textContent = v ? "★" : "☆";
   $("#btn-star").classList.toggle("on", v);
 }
 
 function setReadBtn(isRead) {
   const b = $("#btn-unread");
-  b.textContent = isRead ? "○" : "●";
+  setIcon(b, isRead ? "mail-open" : "mail");
   b.classList.toggle("on", !isRead);
   b.title = isRead ? "Mark unread (m)" : "Mark read (m)";
   b.setAttribute("aria-pressed", !isRead);
@@ -376,7 +392,7 @@ function settle() {
   updatePager();
 }
 function goPage(p, smooth = true) {
-  S.edgeArmed = 0; S.saveOK = true;
+  S.saveOK = true;
   const m = pagerMetrics();
   S.target = clampPage(m, p);
   S.moving = true;
@@ -388,26 +404,14 @@ function goPage(p, smooth = true) {
 function turn(d) {
   const m = pagerMetrics(), t = (S.target ?? pageOfScroll(m)) + d;
   if (t >= 0 && t < m.pages) { goPage(t); return; }
-  const i = S.entries.findIndex((x) => x.id === S.cur), j = i + (d > 0 ? 1 : -1);
-  if (i < 0 || j < 0 || j >= S.entries.length) return;
-  // The first step past an end only announces the neighbour; a second one within a few seconds goes there.
-  if (S.edgeArmed !== d) {
-    S.edgeArmed = d;
-    clearTimeout(S.edgeT);
-    S.edgeT = setTimeout(() => { S.edgeArmed = 0; }, 5000);
-    toast((d > 0 ? "End. Again for next: " : "Start. Again for previous: ") + (S.entries[j].title || "untitled"));
-    return;
-  }
-  S.edgeArmed = 0;
-  S.pendingLast = d < 0 ? S.entries[j].id : null;
-  step(d > 0 ? 1 : -1);
+  // The first and last page are the ends: Next/Previous (j/k) move between articles, paging never does.
 }
 function syncFocus() {
   const on = S.focus && !$("#article").hidden;
   $("#app").dataset.focus = on ? "1" : "";
   $("#btn-focus").classList.toggle("on", S.focus);
   $("#btn-focus").setAttribute("aria-pressed", S.focus ? "true" : "false");
-  $("#btn-focus").textContent = S.focus ? "⤡" : "⤢";
+  setIcon($("#btn-focus"), S.focus ? "minimize" : "maximize");
   $("#art-scroll").scrollLeft = 0;
   if (!on) { const b = document.querySelector(".art-body"); b.style.maxWidth = ""; b.style.removeProperty("--cols"); }
   S.target = null; S.moving = false;

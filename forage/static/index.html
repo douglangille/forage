@@ -20,8 +20,8 @@
   <aside id="side">
     <header class="side-head">
       <h1>Forage</h1>
-      <button id="btn-refresh" class="icon" title="Refresh all (r)" aria-label="Refresh">⟳</button>
-      <button id="btn-settings" class="icon" title="Settings" aria-label="Settings">⚙︎</button>
+      <button id="btn-refresh" class="icon" title="Refresh all (r)" aria-label="Refresh" data-icon="refresh"></button>
+      <button id="btn-settings" class="icon" title="Settings" aria-label="Settings" data-icon="settings"></button>
     </header>
     <nav id="nav"></nav>
     <footer class="side-foot">
@@ -32,12 +32,12 @@
 
   <section id="list-pane">
     <header class="pane-head">
-      <button id="btn-menu" class="icon only-narrow" aria-label="Feeds">☰</button>
+      <button id="btn-menu" class="icon only-narrow" aria-label="Feeds" data-icon="menu"></button>
       <h2 id="list-title">Unread</h2>
-      <button id="btn-editfeed" class="icon" title="Edit this feed" aria-label="Edit this feed" hidden>✎</button>
+      <button id="btn-editfeed" class="icon" title="Edit this feed" aria-label="Edit this feed" data-icon="pencil" hidden></button>
       <div class="spacer"></div>
       <button id="btn-filter" class="chip" title="Toggle unread only (u)">Unread</button>
-      <button id="btn-markall" class="icon" title="Mark all read" aria-label="Mark all read">✓✓</button>
+      <button id="btn-markall" class="icon" title="Mark all read" aria-label="Mark all read" data-icon="check-all"></button>
     </header>
     <div class="searchbar"><input id="q" type="search" placeholder="Search titles…" autocomplete="off"></div>
     <ul id="entries"></ul>
@@ -48,14 +48,14 @@
     <div id="reader-empty">Pick something to read.</div>
     <article id="article" hidden>
       <header class="art-head">
-        <button id="btn-back" class="icon only-narrow" aria-label="Back">‹</button>
+        <button id="btn-back" class="icon only-narrow" aria-label="Back" data-icon="chevron-left"></button>
         <div class="spacer"></div>
-        <button id="btn-focus" class="icon" aria-pressed="false" title="Focus mode: paged columns (z)" aria-label="Focus mode">⤢</button>
-        <button id="btn-prev" class="icon" title="Previous (k)" aria-label="Previous">↑</button>
-        <button id="btn-next" class="icon" title="Next (j)" aria-label="Next">↓</button>
-        <button id="btn-star" class="icon" title="Star" aria-label="Star">☆</button>
-        <button id="btn-unread" class="icon" title="Mark unread (m)" aria-label="Mark unread">●</button>
-        <a id="btn-open" class="icon" target="_blank" rel="noopener" title="Open original (o)" aria-label="Open original">↗︎</a>
+        <button id="btn-focus" class="icon" aria-pressed="false" title="Focus mode: paged columns (z)" aria-label="Focus mode" data-icon="maximize"></button>
+        <button id="btn-prev" class="icon" title="Previous (k)" aria-label="Previous" data-icon="chevron-up"></button>
+        <button id="btn-next" class="icon" title="Next (j)" aria-label="Next" data-icon="chevron-down"></button>
+        <button id="btn-star" class="icon" title="Star" aria-label="Star" data-icon="star"></button>
+        <button id="btn-unread" class="icon" title="Mark unread (m)" aria-label="Mark unread" data-icon="mail-open"></button>
+        <a id="btn-open" class="icon" target="_blank" rel="noopener" title="Open original (o)" aria-label="Open original" data-icon="external"></a>
         <button id="btn-save" class="icon save-btn" title="Save a clip to the Obsidian inbox (s)" aria-label="Save a clip to Obsidian"></button>
       </header>
       <div class="art-scroll" id="art-scroll">
@@ -66,7 +66,7 @@
         </div>
         <i id="art-pad"></i>
       </div>
-      <div id="pager"><button id="pg-prev" class="icon" aria-label="Previous page">‹</button><span id="pg-n"></span><button id="pg-next" class="icon" aria-label="Next page">›</button></div>
+      <div id="pager"><button id="pg-prev" class="icon" aria-label="Previous page" data-icon="chevron-left"></button><span id="pg-n"></span><button id="pg-next" class="icon" aria-label="Next page" data-icon="chevron-right"></button></div>
     </article>
   </main>
   <div id="scrim"></div>
