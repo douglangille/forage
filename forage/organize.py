@@ -86,7 +86,7 @@ async def propose(key: str, model: str, feeds: list[dict], ua: str, allow_traini
     ids = {f["id"] for f in feeds}
     return await summarize.complete(
         key, model, SYSTEM, "id | name | site | recent posts\n" + feed_lines(feeds), ua,
-        lambda t: parse_folders(t, ids), allow_training, max_tokens=4000)
+        lambda t: parse_folders(t, ids), allow_training, max_tokens=6000, attempts=5, timeout=60)
 
 
 async def pick(key: str, model: str, feed: dict, folders: list[str], ua: str, allow_training: bool = False) -> str:

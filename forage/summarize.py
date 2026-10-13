@@ -34,7 +34,7 @@ def clean(text: str) -> str:
 
 
 async def complete(key: str, model: str, system: str, user: str, ua: str, parse, allow_training: bool = False,
-                   max_tokens: int = 900, attempts: int = ATTEMPTS) -> tuple[object, str]:
+                   max_tokens: int = 900, attempts: int = ATTEMPTS, timeout: int = ATTEMPT_SECONDS) -> tuple[object, str]:
     """(parse(answer), model that answered). parse returns something falsy for an unusable answer, which retries.
     Raises RuntimeError with a message fit to show the reader."""
     body = {
@@ -44,7 +44,7 @@ async def complete(key: str, model: str, system: str, user: str, ua: str, parse,
         "provider": {"data_collection": "allow" if allow_training else "deny"},  # deny: only hosts that don't keep or train on prompts
     }
     last = "no answer"
-    async with httpx.AsyncClient(timeout=ATTEMPT_SECONDS, headers={"Authorization": f"Bearer {key}", "User-Agent": ua}) as http:
+    async with httpx.AsyncClient(timeout=timeout, headers={"Authorization": f"Bearer {key}", "User-Agent": ua}) as http:
         for _ in range(attempts):
             try:
                 r = await http.post(URL, json=body)
@@ -71,6 +71,10 @@ async def complete(key: str, model: str, system: str, user: str, ua: str, parse,
             if out:
                 return out, data.get("model") or model
             last = "the model returned nothing usable"
+            try:  # to the service log, so a bad run can be diagnosed
+                print(f"forage: unusable answer from {data.get('model')}: {str(data['choices'][0]['message'].get('content'))[:300]!r} finish={data['choices'][0].get('finish_reason')}", flush=True)
+            except Exception:
+                pass
     raise RuntimeError(f"No answer: {last}.")
 
 
