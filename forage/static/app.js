@@ -167,6 +167,7 @@ function renderList(append) {
     ul.innerHTML = S.entries.map((e, i) => rowHtml(e, i)).join("");
     if (append) ul.scrollTop = keepTop;
   }
+  layoutCards();
   $("#list-empty").hidden = S.entries.length > 0;
   $("#list-empty").textContent = S.feeds.length ? "Nothing here. Go outside." : "No feeds yet. Add one, or import an OPML file from Manage.";
 }
@@ -174,11 +175,46 @@ function renderList(append) {
 function cardHtml(e, i) {
   const lead = i === 0 && !!e.card;
   return `<li data-id="${e.id}" tabindex="0" role="button" class="card ${lead ? "lead" : ""} ${e.card ? "" : "bare"} ${e.is_read ? "" : "unread"} ${S.cur === e.id ? "sel" : ""}">
-    ${e.card ? `<img class="pic" loading="${lead ? "eager" : "lazy"}" decoding="async" src="${esc(e.card)}" alt="" onerror="this.closest('li').classList.add('bare');this.remove()" onload="if(this.naturalWidth)this.style.aspectRatio=this.naturalWidth+'/'+this.naturalHeight">` : ""}
+    ${e.card ? `<img class="pic" loading="${lead ? "eager" : "lazy"}" decoding="async" src="${esc(e.card)}" alt="" onerror="this.closest('li').classList.add('bare');this.remove();layoutCards()" onload="if(this.naturalWidth)this.style.aspectRatio=this.naturalWidth+'/'+this.naturalHeight;layoutCards()">` : ""}
     <div class="cbody"><div class="sub"><span class="dot"></span>${esc(e.feed_title)} · ${ago(e.published)}</div>
       <div class="ttl">${esc(e.title)}</div>
       ${e.summary ? `<div class="snip">${esc(e.summary.slice(0, lead ? 320 : 200))}</div>` : ""}</div></li>`;
 }
+
+// Masonry for Today: columns of at least CARD_MIN px fill the width, each card goes where the shortest column is, and the
+// lead takes two columns when there are two or more. Heights are read after every width is set, so it's one reflow.
+const CARD_MIN = 250, CARD_GAP = 14;
+let layoutQueued = false;
+function layoutCards() {
+  if (layoutQueued) return;
+  layoutQueued = true;
+  requestAnimationFrame(() => {
+    layoutQueued = false;
+    const ul = $("#entries");
+    if (S.scope.type !== "today" || !ul.clientWidth) return;
+    const cs = getComputedStyle(ul), padL = parseFloat(cs.paddingLeft), padT = parseFloat(cs.paddingTop);
+    const W = ul.clientWidth - padL - parseFloat(cs.paddingRight);
+    const n = Math.max(1, Math.floor((W + CARD_GAP) / (CARD_MIN + CARD_GAP)));
+    const cw = (W - CARD_GAP * (n - 1)) / n;
+    const cards = [...ul.children];
+    const spans = cards.map((li) => (li.classList.contains("lead") && n > 1 ? 2 : 1));
+    cards.forEach((li, i) => { li.style.width = cw * spans[i] + CARD_GAP * (spans[i] - 1) + "px"; });
+    const heights = cards.map((li) => li.offsetHeight);
+    const col = Array(n).fill(0);
+    cards.forEach((li, i) => {
+      let at = 0, top = Infinity;
+      for (let c = 0; c + spans[i] <= n; c++) {
+        const y = Math.max(...col.slice(c, c + spans[i]));
+        if (y < top - 0.5) { top = y; at = c; }
+      }
+      li.style.left = padL + at * (cw + CARD_GAP) + "px";
+      li.style.top = padT + top + "px";
+      for (let k = 0; k < spans[i]; k++) col[at + k] = top + heights[i] + CARD_GAP;
+    });
+    ul.style.setProperty("--mason-h", Math.max(0, ...col) - CARD_GAP + "px");
+  });
+}
+new ResizeObserver(layoutCards).observe($("#entries"));
 
 function rowHtml(e, i) {
   if (S.scope.type === "today") return cardHtml(e, i);
@@ -192,7 +228,7 @@ function rowHtml(e, i) {
 
 function patchRow(e) {
   const li = $(`#entries li[data-id="${e.id}"]`);
-  if (li) li.outerHTML = rowHtml(e, S.entries.indexOf(e));
+  if (li) { li.outerHTML = rowHtml(e, S.entries.indexOf(e)); layoutCards(); }
 }
 
 /* ---------- reader ---------- */
