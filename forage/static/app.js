@@ -369,7 +369,9 @@ function layoutPaging() {
   const bw = m.body.getBoundingClientRect().width, left = m.padL + (m.sc.clientWidth - m.padL - m.padR - bw) / 2;
   m.sc.style.clipPath = `inset(0 ${Math.max(0, m.sc.clientWidth - left - bw)}px 0 ${Math.max(0, left)}px)`;
   // Without this, a short last page can't be scrolled to its own start.
-  $("#art-pad").style.left = (m.padL + m.pages * m.stride - m.gap + m.padR - 1) + "px";
+  // The block is centred, so scrolling to the last page also needs the centring margin on both sides of it.
+  const spare = Math.max(0, m.sc.clientWidth - m.padL - m.padR - bw);
+  $("#art-pad").style.left = (m.padL + m.pages * m.stride - m.gap + m.padR - 1 + spare) + "px";
   if (!S.moving) {   // never fight a page turn in flight; settle() re-anchors when it ends
     const r = S.anchor && anchorRect(), was = m.sc.scrollLeft;
     // Reflow scrolls (ours or the browser's clamping) must not re-anchor: only a page turn or the reader's own scroll does (S.saveOK).
