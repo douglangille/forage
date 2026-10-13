@@ -5,7 +5,8 @@ from urllib.parse import parse_qs, urlsplit
 
 _ID = re.compile(r"^[\w-]{11}$")
 _URL = re.compile(r"(https?://[^\s<>\"]+?)([.,;:!?)\]]*(?:\s|$))")
-PARA_MIN = 20  # seconds of speech before a paragraph may break at a sentence end
+PARA_SENTENCE = 4  # seconds before a paragraph may break at a caption that ends a sentence
+PARA_MAX = 30      # seconds after which it breaks anyway, mid-sentence if need be (fitted to the Web Clipper's output)
 
 
 def video_id(guid: str, url: str) -> str:
@@ -62,21 +63,72 @@ def _stamp(sec: float) -> str:
     return f"{s // 3600}:{s % 3600 // 60:02d}:{s % 60:02d}" if s >= 3600 else f"{s // 60}:{s % 60:02d}"
 
 
-def transcript_markdown(snips: list[tuple[float, str]]) -> str:
-    """Web Clipper's shape: paragraphs of **m:ss** · text, broken at a sentence end once PARA_MIN seconds have passed."""
-    paras, start, buf = [], 0.0, []
-    for t, text in snips:
+_CHAPTER = re.compile(r"^\(?((?:\d+:)?\d{1,2}:\d{2})\)?[\s\-–—:]+(\S.*)$")
+
+
+def _secs(stamp: str) -> int:
+    n = 0
+    for part in stamp.split(":"):
+        n = n * 60 + int(part)
+    return n
+
+
+def chapters(description: str) -> list[tuple[int, str]]:
+    """(start seconds, title) from the description's timestamp lines, the way YouTube reads them: three or more, the first at 0:00."""
+    found = []
+    for line in description.splitlines():
+        m = _CHAPTER.match(line.strip())
+        if m:
+            found.append((_secs(m.group(1)), m.group(2).strip()))
+    ok = len(found) >= 3 and found[0][0] == 0 and all(a[0] < b[0] for a, b in zip(found, found[1:]))
+    return found if ok else []
+
+
+def description_text(feed_html: str) -> str:
+    """The plain text back out of the description HTML the feed was stored as."""
+    t = re.sub(r"<br\s*/?>", "\n", feed_html or "")
+    t = re.sub(r"</p>\s*<p>", "\n\n", t)
+    return html.unescape(re.sub(r"<[^>]+>", "", t)).strip()
+
+
+def _clean(text: str) -> str:
+    text = re.sub(r"\s*>>\s*", " ", text)  # captions mark a speaker change with >>
+    return re.sub(r"([\[\]])", r"\\\1", re.sub(r"\s+", " ", text)).strip()
+
+
+def transcript_markdown(snips: list[tuple[float, str]], chaps: list[tuple[int, str]] = ()) -> str:
+    """Web Clipper's shape: **m:ss** · text paragraphs under ### chapter headings. A paragraph breaks at a caption that ends a
+    sentence once PARA_SENTENCE seconds have run, or after PARA_MAX regardless, and always where a chapter starts."""
+    out, buf, start, nxt = [], [], 0.0, 0
+
+    def flush():
+        nonlocal buf
+        if buf:
+            out.append(f"**{_stamp(start)}** · " + _clean(" ".join(buf)))
+            buf = []
+
+    for i, (t, text) in enumerate(snips):
+        new_chapter = nxt < len(chaps) and t >= chaps[nxt][0]
+        elapsed = t - start
+        prev_ends = i > 0 and re.search(r"[.!?][\"')\]]*$", snips[i - 1][1])
+        if buf and (new_chapter or (prev_ends and elapsed >= PARA_SENTENCE) or elapsed >= PARA_MAX):
+            flush()
+        if new_chapter:
+            out.append(f"### {chaps[nxt][1]}")
+            nxt += 1
         if not buf:
             start = t
         buf.append(text)
-        if t - start >= PARA_MIN and re.search(r"[.!?][\"')\]]*$", text):
-            paras.append((start, " ".join(buf)))
-            buf = []
-    if buf:
-        paras.append((start, " ".join(buf)))
-    return "\n\n".join(f"**{_stamp(s)}** · {p}" for s, p in paras)
+    flush()
+    return "\n\n".join(out)
 
 
-def clip_body(vid: str, snips: list[tuple[float, str]]) -> str:
+def clip_body(vid: str, snips: list[tuple[float, str]], description: str = "") -> str:
+    """The clip below its frontmatter, as the Web Clipper writes a video: the player, the description (a hard break at
+    each line end), then the transcript. No H1: the title is already in the frontmatter."""
     body = f"![]({watch_url(vid)})\n"
-    return body + ("\n## Transcript\n\n" + transcript_markdown(snips) + "\n" if snips else "")
+    if description:
+        body += "\n" + "  \n".join(description.splitlines()) + "\n"
+    if snips:
+        body += "\n## Transcript\n\n" + transcript_markdown(snips, chapters(description)) + "\n"
+    return body

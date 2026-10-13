@@ -399,7 +399,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         if not vid:
             return entry, None
         snips = await asyncio.to_thread(youtube.fetch_transcript, vid)
-        return entry | {"url": youtube.watch_url(vid)}, youtube.clip_body(vid, snips)
+        return entry | {"url": youtube.watch_url(vid)}, youtube.clip_body(vid, snips, youtube.description_text(row["feed_html"]))
 
     @app.get("/api/entries/{eid}/clip")
     async def entry_clip(eid: int):

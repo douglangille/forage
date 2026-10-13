@@ -373,10 +373,15 @@ def test_youtube_ids_and_clip_body():
     assert youtube.video_id("x", "https://www.youtube.com/shorts/IBVmenOroPs") == "IBVmenOroPs"
     assert youtube.video_id("x", "https://youtu.be/IBVmenOroPs?t=3") == "IBVmenOroPs"
     assert youtube.video_id("x", "https://example.com/watch?v=IBVmenOroPs") == ""
-    body = youtube.clip_body("IBVmenOroPs", [(0.0, "Hello there."), (25.0, "Second bit."), (26.0, "Done.")])
-    assert body.startswith("![](https://www.youtube.com/watch?v=IBVmenOroPs)\n\n## Transcript\n\n**0:00** · Hello there.")
-    assert "**0:00** · Hello there. Second bit.\n\n**0:26** · Done." in body
-    assert "## Transcript" not in youtube.clip_body("IBVmenOroPs", [])
+    snips = [(0.0, "Hello there."), (5.0, "Second bit [music]"), (31.0, "Done. >> Yes."), (40.0, "Last.")]
+    desc = "About it.\n\nChapters\n(0:00) Intro\n(0:31) Middle\n(0:40) End"
+    body = youtube.clip_body("IBVmenOroPs", snips, desc)
+    assert body.startswith("![](https://www.youtube.com/watch?v=IBVmenOroPs)\n\nAbout it.  \n  \nChapters  \n(0:00) Intro  \n")
+    assert "\n## Transcript\n\n### Intro\n\n**0:00** · Hello there.\n\n**0:05** · Second bit \\[music\\]\n\n### Middle\n\n**0:31** · Done. Yes.\n\n### End\n\n**0:40** · Last.\n" in body
+    assert "## Transcript" not in youtube.clip_body("IBVmenOroPs", [], desc)
+    assert youtube.chapters("a\n0:00 One\n1:10 - Two\n2:20 Three") == [(0, "One"), (70, "Two"), (140, "Three")]
+    assert youtube.chapters("0:00 One\n1:10 Two") == []  # fewer than three isn't a chapter list
+    assert youtube.description_text('<p>a<br>b</p><p>c &amp; d</p>') == "a\nb\n\nc & d"
     assert youtube.description_html("a\nhttps://x.co/a.\n\nb") == '<p>a<br><a href="https://x.co/a">https://x.co/a</a>.</p><p>b</p>'
 
 
