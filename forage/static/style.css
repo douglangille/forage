@@ -272,9 +272,11 @@ dialog input[type=text], dialog select { display: block; width: 100%; margin-top
 
 #art-scroll { overscroll-behavior-x: none; }
 
-/* Phone width: ten toolbar buttons at 38px plus gaps run past a 390px screen and cut Share and Save off, so they tighten up. */
+/* Phone width: ten toolbar buttons at 38px plus gaps ran past a 390px screen and cut Share and Save off. Mark unread (the m key and the star cover it)
+   and Open original (the share sheet has Open in Safari) go, which leaves eight at close to full touch size. */
 @media (max-width: 520px) {
   .art-head { gap: 0; padding: 10px 6px; }
-  .art-head .icon { padding: 6px 7px; }
+  .art-head .icon { padding: 6px 11px; }
+  #btn-unread, #btn-open { display: none; }
 }
-@media (max-width: 340px) { .art-head .icon { padding: 6px 5px; } }
+@media (max-width: 340px) { .art-head .icon { padding: 6px 9px; } }
