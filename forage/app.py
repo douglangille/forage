@@ -338,7 +338,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         A failed fetch is never cached as the article, or one timeout would leave the summary there for good."""
         vid = youtube.video_id(row["guid"], row["url"])
         if vid:  # the page would only give YouTube's chrome; read the player and the feed's description
-            return youtube.player_html(vid) + (row["feed_html"] or "")
+            return youtube.player_html(vid) + extract.sanitize(youtube.reader_description(row["feed_html"]), row["url"])
         if row["full_html"]:
             return row["full_html"]
         if row["feed_html"] and extract.looks_full(row["feed_html"], row["summary"]):

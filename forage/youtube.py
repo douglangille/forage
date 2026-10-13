@@ -42,6 +42,13 @@ def _linkify(escaped: str) -> str:
     return _URL.sub(lambda m: f'<a href="{m.group(1)}">{m.group(1)}</a>{m.group(2)}', escaped)
 
 
+def reader_description(feed_html: str) -> str:
+    """The stored description as paragraphs. Entries stored before the formatting existed hold the bare text, newlines and all."""
+    if not feed_html or "<p>" in feed_html:
+        return feed_html or ""
+    return description_html(description_text(feed_html))
+
+
 def player_html(vid: str) -> str:
     return (f'<div class="yt-embed"><iframe src="https://www.youtube-nocookie.com/embed/{vid}" title="YouTube video player" '
             'allow="accelerometer; encrypted-media; picture-in-picture; fullscreen" referrerpolicy="strict-origin-when-cross-origin" '

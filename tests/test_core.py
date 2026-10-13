@@ -388,3 +388,10 @@ def test_youtube_ids_and_clip_body():
 def test_strip_leading_title_unescapes():
     from forage import extract
     assert extract.strip_leading_title("<h1>A &gt; B</h1><p>x</p>", "A > B") == "<p>x</p>"
+
+
+def test_youtube_old_description_gets_paragraphs():
+    from forage import youtube
+    old = "Intro line.\n\nSee https://x.co/a &amp; more\nnext line"
+    assert youtube.reader_description(old) == '<p>Intro line.</p><p>See <a href="https://x.co/a">https://x.co/a</a> &amp; more<br>next line</p>'
+    assert youtube.reader_description("<p>done</p>") == "<p>done</p>"
