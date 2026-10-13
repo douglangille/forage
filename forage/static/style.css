@@ -274,3 +274,10 @@ dialog input[type=text], dialog select { display: block; width: 100%; margin-top
 }
 
 #art-scroll { overscroll-behavior-x: none; }
+
+/* Phone width: ten toolbar buttons at 38px plus gaps run past a 390px screen and cut Share and Save off, so they tighten up. */
+@media (max-width: 520px) {
+  .art-head { gap: 0; padding: 10px 6px; }
+  .art-head .icon { padding: 6px 7px; }
+}
+@media (max-width: 340px) { .art-head .icon { padding: 6px 5px; } }
