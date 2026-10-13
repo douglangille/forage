@@ -287,7 +287,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         if starred:
             where.append("e.starred=1")
         if q:
-            where.append("(e.title LIKE ? OR e.summary LIKE ?)"); args += [f"%{q}%"] * 2
+            where.append("(e.title LIKE ? OR e.summary LIKE ? OR e.ai_summary LIKE ?)"); args += [f"%{q}%"] * 3
         if before:  # cursor: "published|id"
             pub, _, eid = before.partition("|")
             try:
