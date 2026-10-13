@@ -383,22 +383,23 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         conn.commit()
         return {"marked": n}
 
-    async def _clip_parts(row: sqlite3.Row):
+    async def _clip_parts(row: sqlite3.Row, transcript: bool = True):
         """The entry as the clip's frontmatter sees it, plus a markdown body when the page isn't the article (a video:
         the player and its transcript, fetched now since only a save needs it)."""
         entry = dict(row) | {"url": http_only(row["url"])}
         vid = youtube.video_id(row["guid"], row["url"])
         if not vid:
             return entry, None
-        snips = await asyncio.to_thread(youtube.fetch_transcript, vid)
+        snips = await asyncio.to_thread(youtube.fetch_transcript, vid) if transcript else []
         return entry | {"url": youtube.watch_url(vid)}, youtube.clip_body(vid, snips, youtube.description_text(row["feed_html"]))
 
     @app.get("/api/entries/{eid}/clip")
-    async def entry_clip(eid: int):
-        """The clip as text, for a client that writes it into the vault itself (the Obsidian plugin)."""
+    async def entry_clip(eid: int, transcript: bool = True):
+        """The clip as text, for a client that writes it into the vault itself (the Obsidian plugin). transcript=0 skips the
+        video transcript fetch, for a client that only wants to read the entry."""
         row = _entry(eid)
         body = await _article_html(row)
-        entry, body_md = await _clip_parts(row)
+        entry, body_md = await _clip_parts(row, transcript)
         text = await asyncio.to_thread(clip.render, entry, body, wikilink_author(), datetime.now().strftime("%Y-%m-%d"), body_md)
         meta = {k: row[k] for k in ("id", "feed_id", "title", "author", "published", "starred", "is_read", "feed_title")}
         return meta | {"url": entry["url"], "filename": clip.filename(row["title"]) + ".md", "markdown": text}
