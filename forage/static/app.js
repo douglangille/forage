@@ -235,7 +235,7 @@ async function openEntry(id, { fromList = true } = {}) {
   S.anchor = null;
   syncFocus();
   if (S.narrow && fromList) { history.pushState({ view: "reader" }, ""); setView("reader"); }
-  else if (!S.narrow) $("#app").dataset.tview = S.scope.type === "today" ? "read" : "";
+  else if (!S.narrow) { $("#app").dataset.tview = S.scope.type === "today" ? "read" : ""; syncFocus(); }
   try {
     const a = await api("/entries/" + id);
     if (S.cur !== id) return;
@@ -502,7 +502,9 @@ function turn(d) {
   // The first and last page are the ends: Next/Previous (j/k) move between articles, paging never does.
 }
 function syncFocus() {
-  const on = S.focus && !$("#article").hidden;
+  // On a wide screen Today's cards are their own screen: focus mode belongs to the article, not to them.
+  const onCards = !S.narrow && S.scope.type === "today" && $("#app").dataset.tview !== "read";
+  const on = S.focus && !$("#article").hidden && !onCards;
   $("#app").dataset.focus = on ? "1" : "";
   $("#btn-focus").classList.toggle("on", S.focus);
   $("#btn-focus").setAttribute("aria-pressed", S.focus ? "true" : "false");
@@ -571,6 +573,7 @@ addEventListener("popstate", () => setView(history.state?.view === "reader" ? "r
 async function setScope(sc) {
   S.scope = sc; S.q = ""; $("#q").value = "";
   $("#app").dataset.tview = "";
+  syncFocus();
   setMenu(false); setView("list");
   renderNav();
   await loadEntries();
@@ -730,7 +733,7 @@ $("#entries").addEventListener("scroll", (e) => {
 });
 $("#btn-menu").onclick = () => setMenu(true);
 $("#scrim").onclick = () => setMenu(false);
-function backToCards() { $("#app").dataset.tview = ""; $(`#entries li[data-id="${S.cur}"]`)?.scrollIntoView({ block: "nearest" }); }
+function backToCards() { $("#app").dataset.tview = ""; syncFocus(); $(`#entries li[data-id="${S.cur}"]`)?.scrollIntoView({ block: "nearest" }); }
 $("#btn-back").onclick = () => {
   if (!S.narrow && S.scope.type === "today") backToCards();
   else if (history.state?.view === "reader") history.back(); else setView("list");

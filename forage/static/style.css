@@ -271,6 +271,4 @@ dialog input[type=text], dialog select { display: block; width: 100%; margin-top
   #app[data-scope="today"][data-tview="read"] #list-pane { display: none; }
   #app[data-scope="today"][data-tview="read"] #reader { display: flex; grid-column: 2 / 4; }
   #app[data-scope="today"][data-tview="read"] #btn-back { display: inline-block; }
-  /* Focus mode hides the list pane, which is the whole Today screen until an article is open. */
-  #app[data-focus="1"][data-scope="today"]:not([data-tview="read"]) #list-pane { display: flex; grid-column: 1 / -1; }
 }

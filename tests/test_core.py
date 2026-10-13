@@ -524,6 +524,11 @@ def test_card_thumbnail_keeps_shape_within_limits():
     assert shrunk(1600, 900, True) == (720, 405)      # kept 16:9
     assert shrunk(1000, 3000, True) == (720, 828)     # a tall cover is cropped to the limit
     assert shrunk(3000, 500, True) == (720, 360)      # and a banner is not left a sliver
+    with pytest.raises(ValueError):
+        shrunk(1, 1, False)                           # a tracking pixel is no picture at all
+    with pytest.raises(ValueError):
+        shrunk(100, 100, True)                        # and a small logo is no card picture, though it can be a list thumbnail
+    assert shrunk(100, 100, False) == (112, 112)
 
 
 def test_cards_param_offers_a_picture_only_when_usable(tmp_path, monkeypatch):
