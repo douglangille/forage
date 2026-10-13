@@ -8,6 +8,8 @@ URL = "https://openrouter.ai/api/v1/chat/completions"
 MAX_CHARS = 30_000  # of article text sent; the reader is told when the rest was left out
 ATTEMPTS = 3        # the free router can pick a different model each try, and some return nothing at all
 ATTEMPT_SECONDS = 25  # a slow free model is abandoned for the next try, not waited on
+# The free router can land on a model that only classifies (a safety or moderation model). Its answer is never a summary.
+NOT_SUMMARIZERS = ("content-safety", "guard", "moderation", "safety")
 SYSTEM = (
     "You summarize articles for a busy reader. Reply with 4 to 7 markdown bullets, most important first, each one sentence, "
     "organised so that together they give the argument and the takeaways. Use only what the text says. "
@@ -27,7 +29,8 @@ def clean(text: str) -> str:
     text = re.sub(r"<think>.*?</think>", "", text or "", flags=re.S | re.I)
     lines = [re.sub(r"^\s*(?:[-*•]|\d+[.)])\s+", "- ", l.rstrip()) for l in text.splitlines() if l.strip() and not l.strip().startswith("```")]
     bullets = [l for l in lines if l.startswith("- ")]
-    return "\n".join(bullets or lines).strip()
+    out = "\n".join(bullets or lines).strip()
+    return out if bullets or len(out) >= 150 else ""  # a few words with no bullets is a verdict or an apology, not a summary
 
 
 async def summarize(key: str, model: str, text: str, ua: str, allow_training: bool = False) -> tuple[str, str]:
@@ -57,6 +60,9 @@ async def summarize(key: str, model: str, text: str, ua: str, allow_training: bo
                 continue
             try:
                 data = r.json()
+                if any(w in str(data.get("model", "")).lower() for w in NOT_SUMMARIZERS):
+                    last = "a model that only checks safety answered"
+                    continue
                 out = clean(data["choices"][0]["message"].get("content") or "")
             except (ValueError, KeyError, IndexError):
                 out = ""

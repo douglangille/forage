@@ -349,6 +349,7 @@ def test_summarize_clean_and_text():
     from forage import summarize
     assert summarize.clean("<think>hm</think>Sure!\n* One\n2. Two\n```") == "- One\n- Two"
     assert summarize.clean("") == ""
+    assert summarize.clean("Safety: Unsafe\nCategories: S1") == ""  # a classifier's verdict is not a summary
     assert summarize.plain_text("<p>a &amp; b</p><p>c</p>").split() == ["a", "&", "b", "c"]
 
 
@@ -388,3 +389,18 @@ def test_summarize_endpoint(tmp_path, monkeypatch):
         assert c.get(f"/api/entries/{eid}").json()["summary_model"] == "some/model:free"
         assert c.post(f"/api/entries/{eid}/summarize", json={"force": True}).json()["cached"] is False and len(calls) == 2
         assert c.post(f"/api/entries/{eid}/summarize", json={"force": True}).status_code == 429  # the daily cap of 2 is spent
+
+
+def test_summarize_skips_safety_models(monkeypatch):
+    import asyncio
+    import httpx
+    from forage import summarize
+    answers = iter([("nvidia/nemotron-3.5-content-safety:free", "- looks like a bullet"), ("some/real:free", "- one\n- two")])
+
+    async def fake_post(self, url, **kw):
+        model, text = next(answers)
+        return httpx.Response(200, json={"model": model, "choices": [{"message": {"content": text}}]}, request=httpx.Request("POST", url))
+
+    monkeypatch.setattr("httpx.AsyncClient.post", fake_post)
+    out, model = asyncio.run(summarize.summarize("k", "openrouter/free", "text", "ua"))
+    assert model == "some/real:free" and out == "- one\n- two"  # the safety model's answer was thrown away and the call retried
