@@ -121,7 +121,7 @@ function query(before) {
   const sc = S.scope;
   if (sc.type === "feed") p.set("feed", sc.id);
   if (sc.type === "folder") p.set("folder", sc.name);
-  if (sc.type === "today") { p.set("since_hours", String(RECENT_HOURS)); p.set("cards", "true"); }
+  if (sc.type === "today") { p.set("since_hours", String(RECENT_HOURS)); if (cardsOn()) p.set("cards", "true"); }
   if (sc.type === "starred") p.set("starred", "true");
   else if (S.unreadOnly) p.set("unread", "true");
   if (S.q) p.set("q", S.q);
@@ -129,6 +129,10 @@ function query(before) {
   return "/entries?" + p;
 }
 
+// On a phone Recent is the ordinary list: a masonry of cards is hard to scan at that width.
+const phoneMQ = matchMedia("(max-width: 599px)");
+const cardsOn = () => S.scope.type === "today" && !phoneMQ.matches;
+phoneMQ.addEventListener("change", () => { if (S.scope.type === "today") loadEntries(); });
 const RECENT_HOURS = 48;  // the Recent view (scope type "today" in the code, its first name)
 let loadTok = 0;
 async function loadEntries(append = false) {
@@ -148,6 +152,7 @@ async function loadEntries(append = false) {
 
 function renderList(append) {
   $("#app").dataset.scope = S.scope.type;
+  $("#app").dataset.cards = cardsOn() ? "1" : "";
   $("#list-title").textContent = scopeTitle() + (S.scope.type === "today" && S.entries.length ? ` · ${S.entries.length}${S.done ? "" : "+"}` : "");
   $("#btn-filter").classList.toggle("on", S.unreadOnly);
   $("#btn-filter").hidden = S.scope.type === "starred";
@@ -184,7 +189,7 @@ function layoutCards() {
   requestAnimationFrame(() => {
     layoutQueued = false;
     const ul = $("#entries");
-    if (S.scope.type !== "today" || !ul.clientWidth) return;
+    if (!cardsOn() || !ul.clientWidth) return;
     const cs = getComputedStyle(ul), padL = parseFloat(cs.paddingLeft), padT = parseFloat(cs.paddingTop);
     const W = ul.clientWidth - padL - parseFloat(cs.paddingRight);
     const n = Math.max(1, Math.floor((W + CARD_GAP) / (CARD_MIN + CARD_GAP)));
@@ -205,7 +210,7 @@ function layoutCards() {
 new ResizeObserver(layoutCards).observe($("#entries"));
 
 function rowHtml(e, i) {
-  if (S.scope.type === "today") return cardHtml(e, i);
+  if (cardsOn()) return cardHtml(e, i);
   return `<li data-id="${e.id}" tabindex="0" role="button" class="${e.is_read ? "" : "unread"} ${S.cur === e.id ? "sel" : ""}">
     <span class="dot"></span>
     <div class="txt"><div class="ttl">${esc(e.title)}</div>
