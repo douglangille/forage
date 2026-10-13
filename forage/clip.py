@@ -34,9 +34,7 @@ def render(entry: dict, article_html: str, wikilink_author: bool, today: str, bo
     if entry.get("summary"):
         fm.append(f"description: {_q(entry['summary'][:200].rstrip())}")
     fm += ["tags:", '  - "clippings"', "---", ""]
-    if body_md is not None:  # a video clip: no H1, the title is in the frontmatter
-        return "\n".join(fm) + body_md
-    return "\n".join(fm) + f"# {entry['title']}\n\n" + extract.to_markdown(article_html)
+    return "\n".join(fm) + f"# {entry['title']}\n\n" + (body_md if body_md is not None else extract.to_markdown(article_html))
 
 
 def write(inbox: Path, entry: dict, article_html: str, wikilink_author: bool, body_md: str | None = None) -> Path:

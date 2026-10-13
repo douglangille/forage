@@ -132,7 +132,7 @@ def transcript_markdown(snips: list[tuple[float, str]], chaps: list[tuple[int, s
 
 def clip_body(vid: str, snips: list[tuple[float, str]], description: str = "") -> str:
     """The clip below its frontmatter, as the Web Clipper writes a video: the player, the description (a hard break at
-    each line end), then the transcript. No H1: the title is already in the frontmatter."""
+    each line end), then the transcript. clip.render puts the H1 above it."""
     body = f"![]({watch_url(vid)})\n"
     if description:
         body += "\n" + "  \n".join(description.splitlines()) + "\n"
