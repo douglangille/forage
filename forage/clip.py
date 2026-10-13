@@ -20,7 +20,8 @@ def _q(s: str) -> str:
     return '"' + s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", " ") + '"'
 
 
-def render(entry: dict, article_html: str, wikilink_author: bool, today: str) -> str:
+def render(entry: dict, article_html: str, wikilink_author: bool, today: str, body_md: str | None = None) -> str:
+    """body_md replaces the converted article HTML (a video clip is the player plus its transcript)."""
     author = (entry.get("author") or "").strip()
     fm = ["---", f"title: {_q(entry['title'])}", f"source: {_q(entry['url'])}"]
     if author:
@@ -33,13 +34,13 @@ def render(entry: dict, article_html: str, wikilink_author: bool, today: str) ->
     if entry.get("summary"):
         fm.append(f"description: {_q(entry['summary'][:300])}")
     fm += ["tags:", '  - "clippings"', "---", ""]
-    return "\n".join(fm) + f"# {entry['title']}\n\n" + extract.to_markdown(article_html)
+    return "\n".join(fm) + f"# {entry['title']}\n\n" + (body_md if body_md is not None else extract.to_markdown(article_html))
 
 
-def write(inbox: Path, entry: dict, article_html: str, wikilink_author: bool) -> Path:
+def write(inbox: Path, entry: dict, article_html: str, wikilink_author: bool, body_md: str | None = None) -> Path:
     inbox.mkdir(parents=True, exist_ok=True)
     today = datetime.now().strftime("%Y-%m-%d")
-    text = render(entry, article_html, wikilink_author, today)
+    text = render(entry, article_html, wikilink_author, today, body_md)
     base = filename(entry["title"])
     path = inbox / f"{base}.md"
     n = 2

@@ -131,6 +131,8 @@ body:has(#app[data-focus="1"]) #toast { bottom: auto; top: calc(64px + var(--sat
 .prose { font: 1em/1.65 var(--font-read); overflow-wrap: anywhere; }
 .prose img { max-width: 100%; height: auto; border-radius: 6px; }
 .prose figure { margin: 1.2em 0; }
+.yt-embed { aspect-ratio: 16 / 9; margin: 0 0 1.2em; break-inside: avoid; }
+.yt-embed iframe { width: 100%; height: 100%; border: 0; border-radius: 6px; }
 .prose figcaption { color: var(--muted); font-size: .75em; }
 .prose a { color: var(--foam); text-decoration: none; }
 .prose a:hover { text-decoration: underline; }

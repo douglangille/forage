@@ -1,5 +1,6 @@
 """Turn an article page (or feed-supplied HTML) into clean reader HTML and clip markdown."""
 import re
+from html import unescape
 from urllib.parse import urljoin
 
 import nh3
@@ -65,7 +66,7 @@ def extract_article(page_html: str, url: str) -> str | None:
 
 
 def _text(html: str) -> str:
-    return re.sub(r"<[^>]+>", "", html)
+    return unescape(re.sub(r"<[^>]+>", "", html))
 
 
 def to_markdown(html: str) -> str:

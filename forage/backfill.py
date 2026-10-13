@@ -21,6 +21,7 @@ ARTICLE_DELAY = 1.0   # between article fetches (sitemap method)
 MAX_PAGES = 60
 SKIP_PATH = re.compile(r"/(tag|tags|category|categories|author|authors|page|feed|search|archive)(/|$)", re.I)
 POSTISH = re.compile(r"post|blog|article|news|entr", re.I)
+ARTICLE_TYPE = re.compile(r"article|blog|post|news", re.I)  # og:type values that mean "a dated piece"; "website" is a landing page
 
 
 def _key(url: str) -> str:
@@ -196,7 +197,8 @@ async def _sitemap(http, feed, first, seen, limit, progress):
         cands.append((loc, lastmod))
     cands.sort(key=lambda c: c[1], reverse=True)
     out = []
-    for loc, lastmod in cands[: limit * 2]:
+    # Pages that aren't articles (about, now, indexes) cost a fetch each, so the budget is on pages looked at, not posts found.
+    for loc, lastmod in cands[: limit * 3 + 20]:
         if len(out) >= limit:
             break
         progress["checked"] += 1
@@ -209,9 +211,12 @@ async def _sitemap(http, feed, first, seen, limit, progress):
             meta = await asyncio.to_thread(trafilatura.extract_metadata, r.text, default_url=str(r.url))
         except Exception:
             continue
+        if meta and meta.pagetype and not ARTICLE_TYPE.search(meta.pagetype):
+            continue  # the page says it isn't an article (og:type website, profile, ...)
         when = _tm((meta.date if meta and meta.date else "") or lastmod)
         if not body or not when:
             continue  # not an article, or no date to file it under
+        body = extract.strip_leading_title(body, (meta.title if meta and meta.title else "") or "")
         out += _fresh([{
             "link": loc, "id": loc, "title": (meta.title if meta and meta.title else "") or loc,
             "author": (meta.author if meta and meta.author else "") or "",

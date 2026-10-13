@@ -13,7 +13,7 @@ from fastapi import Body, FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import backfill, clip, db, extract, feeds, opml, search, thumbs
+from . import backfill, clip, db, extract, feeds, opml, search, thumbs, youtube
 from .config import Config, load
 
 STATIC = Path(__file__).parent / "static"
@@ -336,10 +336,13 @@ def create_app(cfg: Config | None = None) -> FastAPI:
     async def _article_html(row: sqlite3.Row) -> str:
         """Best readable body: cached extraction, else feed content if it's full, else fetch the page.
         A failed fetch is never cached as the article, or one timeout would leave the summary there for good."""
+        vid = youtube.video_id(row["guid"], row["url"])
+        if vid:  # the page would only give YouTube's chrome; read the player and the feed's description
+            return youtube.player_html(vid) + (row["feed_html"] or "")
         if row["full_html"]:
             return row["full_html"]
         if row["feed_html"] and extract.looks_full(row["feed_html"], row["summary"]):
-            return row["feed_html"]
+            return extract.strip_leading_title(row["feed_html"], row["title"])
         fetched = None
         if row["url"] and time.time() - fetch_failed.get(row["id"], 0) > 300:
             try:
@@ -388,13 +391,23 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         conn.commit()
         return {"marked": n}
 
+    async def _clip_parts(row: sqlite3.Row):
+        """The entry as the clip's frontmatter sees it, plus a markdown body when the page isn't the article (a video:
+        the player and its transcript, fetched now since only a save needs it)."""
+        entry = dict(row) | {"url": http_only(row["url"])}
+        vid = youtube.video_id(row["guid"], row["url"])
+        if not vid:
+            return entry, None
+        snips = await asyncio.to_thread(youtube.fetch_transcript, vid)
+        return entry | {"url": youtube.watch_url(vid)}, youtube.clip_body(vid, snips)
+
     @app.get("/api/entries/{eid}/clip")
     async def entry_clip(eid: int):
         """The clip as text, for a client that writes it into the vault itself (the Obsidian plugin)."""
         row = _entry(eid)
         body = await _article_html(row)
-        entry = dict(row) | {"url": http_only(row["url"])}
-        text = await asyncio.to_thread(clip.render, entry, body, wikilink_author(), datetime.now().strftime("%Y-%m-%d"))
+        entry, body_md = await _clip_parts(row)
+        text = await asyncio.to_thread(clip.render, entry, body, wikilink_author(), datetime.now().strftime("%Y-%m-%d"), body_md)
         meta = {k: row[k] for k in ("id", "feed_id", "title", "author", "published", "starred", "is_read", "feed_title")}
         return meta | {"url": entry["url"], "filename": clip.filename(row["title"]) + ".md", "markdown": text, "saved_path": row["saved_path"]}
 
@@ -417,8 +430,8 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             if row["saved_path"]:
                 return {"path": row["saved_path"], "already": True}
             body = await _article_html(row)
-            entry = dict(row) | {"url": http_only(row["url"])}
-            path = await asyncio.to_thread(clip.write, inbox_dir(), entry, body, wikilink_author())
+            entry, body_md = await _clip_parts(row)
+            path = await asyncio.to_thread(clip.write, inbox_dir(), entry, body, wikilink_author(), body_md)
             conn.execute("UPDATE entries SET saved_path=?, is_read=1 WHERE id=?", (path.name, eid))
             conn.commit()
         save_locks.pop(eid, None)

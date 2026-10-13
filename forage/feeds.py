@@ -14,7 +14,7 @@ import feedparser
 import httpx
 from lxml import html as lxml_html
 
-from . import extract
+from . import extract, youtube
 from .config import Config
 
 FEED_TYPES = ("application/rss+xml", "application/atom+xml", "application/feed+json", "application/xml", "text/xml")
@@ -93,6 +93,8 @@ def _store_entries(conn: sqlite3.Connection, feed_id: int, parsed, base_url: str
             content = max((c.get("value", "") for c in e["content"]), key=len, default="")
         summary_html = e.get("summary", "") or ""
         body = content or summary_html
+        if e.get("yt_videoid"):  # a YouTube feed's description is plain text; keep its paragraphs and links
+            body = youtube.description_html(summary_html)
         plain = html.unescape(re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", summary_html or content))).strip()[:400]
         author = e.get("author", "") or ""
         cur = conn.execute(
@@ -107,6 +109,8 @@ def _store_entries(conn: sqlite3.Connection, feed_id: int, parsed, base_url: str
             ),
         )
         new += cur.rowcount
+        if e.get("yt_videoid") and not cur.rowcount and body:  # entries stored before descriptions were formatted
+            conn.execute("UPDATE entries SET feed_html=? WHERE feed_id=? AND guid=?", (extract.sanitize(body, link or base_url), feed_id, guid))
     return new
 
 

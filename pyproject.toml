@@ -16,6 +16,7 @@ dependencies = [
   "markdownify",
   "nh3",
   "pillow",
+  "youtube-transcript-api",
 ]
 
 [project.optional-dependencies]

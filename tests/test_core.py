@@ -365,3 +365,21 @@ def test_thumbnail_is_small_webp_and_cached(tmp_path, monkeypatch):
     assert Image.open(io.BytesIO(r.content)).size == (112, 112) and len(r.content) < len(buf.getvalue())
     c.get(e["thumb"])
     assert hits == ["/big.png"]  # second request served from disk
+
+
+def test_youtube_ids_and_clip_body():
+    from forage import youtube
+    assert youtube.video_id("yt:video:IBVmenOroPs", "") == "IBVmenOroPs"
+    assert youtube.video_id("x", "https://www.youtube.com/shorts/IBVmenOroPs") == "IBVmenOroPs"
+    assert youtube.video_id("x", "https://youtu.be/IBVmenOroPs?t=3") == "IBVmenOroPs"
+    assert youtube.video_id("x", "https://example.com/watch?v=IBVmenOroPs") == ""
+    body = youtube.clip_body("IBVmenOroPs", [(0.0, "Hello there."), (25.0, "Second bit."), (26.0, "Done.")])
+    assert body.startswith("![](https://www.youtube.com/watch?v=IBVmenOroPs)\n\n## Transcript\n\n**0:00** · Hello there.")
+    assert "**0:00** · Hello there. Second bit.\n\n**0:26** · Done." in body
+    assert "## Transcript" not in youtube.clip_body("IBVmenOroPs", [])
+    assert youtube.description_html("a\nhttps://x.co/a.\n\nb") == '<p>a<br><a href="https://x.co/a">https://x.co/a</a>.</p><p>b</p>'
+
+
+def test_strip_leading_title_unescapes():
+    from forage import extract
+    assert extract.strip_leading_title("<h1>A &gt; B</h1><p>x</p>", "A > B") == "<p>x</p>"
