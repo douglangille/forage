@@ -85,7 +85,7 @@ function renderNav() {
   const item = (sc, label, n, cls = "", err = false) =>
     `<button class="nav-item ${cls} ${err ? "err" : ""} ${scopeKey(S.scope) === scopeKey(sc) ? "sel" : ""}" data-scope='${esc(JSON.stringify(sc))}'><span class="t">${esc(label)}</span>${n ? `<span class="n">${n}</span>` : ""}</button>`;
   let h = item({ type: "all" }, "All items", total) + item({ type: "starred" }, "Starred", 0);
-  const names = Object.keys(folders).sort((a, b) => a.localeCompare(b));
+  const names = Object.keys(folders).sort((a, b) => (!a - !b) || a.localeCompare(b));  // folders by name, unfiled last
   for (const name of names) {
     const feedsHtml = folders[name].map((f) => item({ type: "feed", id: f.id }, f.title || f.url, f.unread, name ? "nav-feed" : "", !!f.error)).join("");
     if (name) {
