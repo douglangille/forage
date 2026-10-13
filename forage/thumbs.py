@@ -76,3 +76,15 @@ async def get(http: httpx.AsyncClient, cache: Path, image_url: str, card: bool =
         tmp.write_bytes(webp)
         tmp.replace(done)
         return done
+
+
+async def card_ratio(http: httpx.AsyncClient, cache: Path, image_url: str) -> float | None:
+    """Height over width of the card picture, building it first if needed. None when there is no usable picture."""
+    path = await get(http, cache, image_url, card=True)
+    if not path:
+        return None
+    try:
+        with Image.open(path) as im:
+            return round(im.height / im.width, 4)
+    except Exception:
+        return None

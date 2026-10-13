@@ -524,3 +524,28 @@ def test_card_thumbnail_keeps_shape_within_limits():
     assert shrunk(1600, 900, True) == (720, 405)      # kept 16:9
     assert shrunk(1000, 3000, True) == (720, 828)     # a tall cover is cropped to the limit
     assert shrunk(3000, 500, True) == (720, 360)      # and a banner is not left a sliver
+
+
+def test_cards_param_offers_a_picture_only_when_usable(tmp_path, monkeypatch):
+    import sqlite3
+    from forage import feeds, thumbs
+    async def fake_discover(http, url): return url
+    async def fake_get(self, url, **kw):
+        import httpx
+        return httpx.Response(200, content=RSS, request=httpx.Request("GET", url))
+    async def fake_ratio(http, cache, url): return 0.5 if "good" in url else None
+    monkeypatch.setattr(feeds, "discover", fake_discover)
+    monkeypatch.setattr("httpx.AsyncClient.get", fake_get)
+    monkeypatch.setattr(thumbs, "card_ratio", fake_ratio)
+    c0 = cfg(tmp_path)
+    with TestClient(create_app(c0)) as c:
+        c.post("/api/feeds", json={"url": "https://ex.test/feed"})
+        eid = c.get("/api/entries").json()[0]["id"]
+        db = sqlite3.connect(c0.db_path)
+        db.execute("UPDATE entries SET image='https://i.test/bad.jpg' WHERE id=?", (eid,)); db.commit()
+        e = c.get("/api/entries?cards=true").json()[0]
+        assert "card" not in e and e["thumb"]  # unusable picture: no card slot, the small thumb link is untouched
+        db.execute("UPDATE entries SET image='https://i.test/good.jpg' WHERE id=?", (eid,)); db.commit()
+        e = c.get("/api/entries?cards=true").json()[0]
+        assert e["card_ratio"] == 0.5 and e["card"].startswith(f"/thumb/{eid}?card=2")
+        assert "card" not in c.get("/api/entries").json()[0]  # only asked for by Today

@@ -121,7 +121,7 @@ function query(before) {
   const sc = S.scope;
   if (sc.type === "feed") p.set("feed", sc.id);
   if (sc.type === "folder") p.set("folder", sc.name);
-  if (sc.type === "today") p.set("since_hours", String(TODAY_HOURS));
+  if (sc.type === "today") { p.set("since_hours", String(TODAY_HOURS)); p.set("cards", "true"); }
   if (sc.type === "starred") p.set("starred", "true");
   else if (S.unreadOnly) p.set("unread", "true");
   if (S.q) p.set("q", S.q);
@@ -139,17 +139,11 @@ async function loadEntries(append = false) {
     const last = S.entries[S.entries.length - 1];
     const rows = await api(query(append && last ? `${last.published}|${last.id}` : ""));
     if (tok !== loadTok) return;
-    S.entries = append ? S.entries.concat(rows) : (S.scope.type === "today" ? leadWithPicture(rows) : rows);
+    S.entries = append ? S.entries.concat(rows) : rows;
     S.done = rows.length < 50;
     renderList(append);
   } catch (e) { if (tok === loadTok) toast("Couldn't load: " + e.message); }
   finally { if (append) S.loadingMore = false; }
-}
-
-// A magazine opens on a picture: the first entry with an image among the newest few becomes the lead card.
-function leadWithPicture(rows) {
-  const i = rows.slice(0, 8).findIndex((e) => e.card);
-  return i > 0 ? [rows[i], ...rows.slice(0, i), ...rows.slice(i + 1)] : rows;
 }
 
 function renderList(append) {
@@ -172,17 +166,16 @@ function renderList(append) {
   $("#list-empty").textContent = S.feeds.length ? "Nothing here. Go outside." : "No feeds yet. Add one, or import an OPML file from Manage.";
 }
 
-function cardHtml(e, i) {
-  const lead = i === 0 && !!e.card;
-  return `<li data-id="${e.id}" tabindex="0" role="button" class="card ${lead ? "lead" : ""} ${e.card ? "" : "bare"} ${e.is_read ? "" : "unread"} ${S.cur === e.id ? "sel" : ""}">
-    ${e.card ? `<img class="pic" loading="${lead ? "eager" : "lazy"}" decoding="async" src="${esc(e.card)}" alt="" onerror="this.closest('li').classList.add('bare');this.remove();layoutCards()" onload="if(this.naturalWidth)this.style.aspectRatio=this.naturalWidth+'/'+this.naturalHeight;layoutCards()">` : ""}
+function cardHtml(e) {
+  return `<li data-id="${e.id}" tabindex="0" role="button" class="card ${e.card ? "" : "bare"} ${e.is_read ? "" : "unread"} ${S.cur === e.id ? "sel" : ""}">
+    ${e.card ? `<img class="pic" loading="lazy" decoding="async" src="${esc(e.card)}" style="aspect-ratio: 1 / ${e.card_ratio}" alt="" onerror="this.closest('li').classList.add('bare');this.remove();layoutCards()">` : ""}
     <div class="cbody"><div class="sub"><span class="dot"></span>${esc(e.feed_title)} · ${ago(e.published)}</div>
       <div class="ttl">${esc(e.title)}</div>
-      ${e.summary ? `<div class="snip">${esc(e.summary.slice(0, lead ? 320 : 200))}</div>` : ""}</div></li>`;
+      ${e.summary ? `<div class="snip">${esc(e.summary.slice(0, 200))}</div>` : ""}</div></li>`;
 }
 
-// Masonry for Today: columns of at least CARD_MIN px fill the width, each card goes where the shortest column is, and the
-// lead takes two columns when there are two or more. Heights are read after every width is set, so it's one reflow.
+// Masonry for Today: columns of at least CARD_MIN px fill the width and each card goes where the shortest column is.
+// Heights are read after every width is set, so it's one reflow.
 const CARD_MIN = 250, CARD_GAP = 14;
 let layoutQueued = false;
 function layoutCards() {
@@ -197,19 +190,14 @@ function layoutCards() {
     const n = Math.max(1, Math.floor((W + CARD_GAP) / (CARD_MIN + CARD_GAP)));
     const cw = (W - CARD_GAP * (n - 1)) / n;
     const cards = [...ul.children];
-    const spans = cards.map((li) => (li.classList.contains("lead") && n > 1 ? 2 : 1));
-    cards.forEach((li, i) => { li.style.width = cw * spans[i] + CARD_GAP * (spans[i] - 1) + "px"; });
+    cards.forEach((li) => { li.style.width = cw + "px"; });
     const heights = cards.map((li) => li.offsetHeight);
     const col = Array(n).fill(0);
     cards.forEach((li, i) => {
-      let at = 0, top = Infinity;
-      for (let c = 0; c + spans[i] <= n; c++) {
-        const y = Math.max(...col.slice(c, c + spans[i]));
-        if (y < top - 0.5) { top = y; at = c; }
-      }
+      const at = col.indexOf(Math.min(...col)), top = col[at];
       li.style.left = padL + at * (cw + CARD_GAP) + "px";
       li.style.top = padT + top + "px";
-      for (let k = 0; k < spans[i]; k++) col[at + k] = top + heights[i] + CARD_GAP;
+      col[at] = top + heights[i] + CARD_GAP;
     });
     ul.style.setProperty("--mason-h", Math.max(0, ...col) - CARD_GAP + "px");
   });

@@ -372,10 +372,10 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         return (datetime.now(timezone.utc) - timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     @app.get("/api/entries")
-    def list_entries(
+    async def list_entries(
         feed: int | None = None, folder: str | None = None, unread: bool = False,
         starred: bool = False, q: str | None = None, before: str | None = None,
-        since_hours: int | None = Query(None, ge=1, le=24 * 365), limit: int = Query(60, le=200),
+        since_hours: int | None = Query(None, ge=1, le=24 * 365), cards: bool = False, limit: int = Query(60, le=200),
     ):
         where, args = [], []
         if feed is not None:
@@ -408,7 +408,17 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             if r["image"]:  # the hash busts the browser's long-lived cache when the entry's image changes
                 v = thumbs.key(r["image"])[:10]
                 r["thumb"] = f"/thumb/{r['id']}?v={v}"
-                r["card"] = f"/thumb/{r['id']}?card=2&v={v}"
+        if cards:  # the card picture is only offered once it exists and is usable, with its shape, so a card with no picture holds no room for one
+            pics = [r for r in rows if r["image"]]
+            async with feeds.client(cfg) as http:
+                tasks = {r["id"]: asyncio.ensure_future(thumbs.card_ratio(http, cfg.data_dir / "thumbs", r["image"])) for r in pics}
+                await asyncio.wait(tasks.values(), timeout=10)  # slow ones go on building for the next load
+                for r in pics:
+                    t = tasks[r["id"]]
+                    ratio = t.result() if t.done() and not t.cancelled() and not t.exception() else None
+                    if ratio:
+                        r["card"] = f"/thumb/{r['id']}?card=2&v={thumbs.key(r['image'])[:10]}"
+                        r["card_ratio"] = ratio
         return rows
 
     @app.get("/thumb/{eid}")
