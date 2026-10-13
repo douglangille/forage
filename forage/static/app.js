@@ -174,7 +174,7 @@ function renderList(append) {
 function cardHtml(e, i) {
   const lead = i === 0 && !!e.card;
   return `<li data-id="${e.id}" tabindex="0" role="button" class="card ${lead ? "lead" : ""} ${e.card ? "" : "bare"} ${e.is_read ? "" : "unread"} ${S.cur === e.id ? "sel" : ""}">
-    ${e.card ? `<img class="pic" loading="${lead ? "eager" : "lazy"}" decoding="async" src="${esc(e.card)}" alt="" onerror="this.closest('li').classList.add('bare');this.remove()">` : ""}
+    ${e.card ? `<img class="pic" loading="${lead ? "eager" : "lazy"}" decoding="async" src="${esc(e.card)}" alt="" onerror="this.closest('li').classList.add('bare');this.remove()" onload="if(this.naturalWidth)this.style.aspectRatio=this.naturalWidth+'/'+this.naturalHeight">` : ""}
     <div class="cbody"><div class="sub"><span class="dot"></span>${esc(e.feed_title)} · ${ago(e.published)}</div>
       <div class="ttl">${esc(e.title)}</div>
       ${e.summary ? `<div class="snip">${esc(e.summary.slice(0, lead ? 320 : 200))}</div>` : ""}</div></li>`;

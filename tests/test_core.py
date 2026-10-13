@@ -513,10 +513,14 @@ def test_today_window_and_card_thumb(tmp_path, monkeypatch):
         assert c.post("/api/mark-read", json={"since_hours": 24}).json()["marked"] == 0
 
 
-def test_card_thumbnail_is_wider_and_cached_apart(tmp_path):
+def test_card_thumbnail_keeps_shape_within_limits():
     import io
     from PIL import Image
     from forage import thumbs
-    buf = io.BytesIO(); Image.new("RGB", (1600, 900), "red").save(buf, "PNG")
-    small, big = thumbs._shrink(buf.getvalue()), thumbs._shrink(buf.getvalue(), thumbs.CARD)
-    assert Image.open(io.BytesIO(small)).size == (112, 112) and Image.open(io.BytesIO(big)).size == thumbs.CARD
+    def shrunk(w, h, card):
+        buf = io.BytesIO(); Image.new("RGB", (w, h), "red").save(buf, "PNG")
+        return Image.open(io.BytesIO(thumbs._shrink(buf.getvalue(), card))).size
+    assert shrunk(1600, 900, False) == (112, 112)
+    assert shrunk(1600, 900, True) == (720, 405)      # kept 16:9
+    assert shrunk(1000, 3000, True) == (720, 828)     # a tall cover is cropped to the limit
+    assert shrunk(3000, 500, True) == (720, 360)      # and a banner is not left a sliver

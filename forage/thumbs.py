@@ -9,7 +9,8 @@ import httpx
 from PIL import Image, ImageOps
 
 SIZE = 112            # 56px thumbnail at 2x
-CARD = (720, 405)     # 16:9 picture for the Today cards
+CARD_W = 720          # Today card pictures keep the image's shape, within these height-to-width limits
+CARD_RATIO = (0.5, 1.15)
 MAX_BYTES = 12_000_000
 RETRY_AFTER = 3600    # seconds before retrying an image that failed
 _sem = asyncio.Semaphore(6)
@@ -31,11 +32,14 @@ def prune(cache: Path, max_age: float = 7 * 86400) -> None:
             f.unlink(missing_ok=True)
 
 
-def _shrink(data: bytes, size: tuple[int, int] = (SIZE, SIZE)) -> bytes:
+def _shrink(data: bytes, card: bool = False) -> bytes:
     im = Image.open(io.BytesIO(data))
     if im.width * im.height > MAX_PIXELS:
         raise ValueError("image too large to decode")
     im = ImageOps.exif_transpose(im)
+    size = (SIZE, SIZE)
+    if card:
+        size = (CARD_W, round(CARD_W * min(CARD_RATIO[1], max(CARD_RATIO[0], im.height / im.width))))
     im = ImageOps.fit(im.convert("RGBA" if "A" in im.getbands() or im.mode == "P" else "RGB"), size)
     out = io.BytesIO()
     im.save(out, "WEBP", quality=70, method=4)
@@ -46,7 +50,7 @@ async def get(http: httpx.AsyncClient, cache: Path, image_url: str, card: bool =
     """Path of the cached thumbnail (or the larger card picture), building it if needed. None when the image can't be used."""
     cache.mkdir(parents=True, exist_ok=True)
     k = key(image_url)
-    done, bad = cache / (f"{k}.card.webp" if card else f"{k}.webp"), cache / f"{k}.bad"
+    done, bad = cache / (f"{k}.c2.webp" if card else f"{k}.webp"), cache / f"{k}.bad"
     if done.exists():
         return done
     if bad.exists() and time.time() - bad.stat().st_mtime < RETRY_AFTER:
@@ -64,7 +68,7 @@ async def get(http: httpx.AsyncClient, cache: Path, image_url: str, card: bool =
                     data += chunk
                     if len(data) > MAX_BYTES:
                         raise ValueError("too large")
-            webp = await asyncio.to_thread(_shrink, bytes(data), CARD if card else (SIZE, SIZE))
+            webp = await asyncio.to_thread(_shrink, bytes(data), card)
         except Exception:
             bad.touch()
             return None
