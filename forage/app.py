@@ -13,7 +13,7 @@ from fastapi import Body, FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import backfill, clip, db, extract, feeds, opml, search, thumbs, youtube
+from . import backfill, clip, db, extract, feeds, opml, search, summarize, thumbs, youtube
 from .config import Config, load
 
 STATIC = Path(__file__).parent / "static"
@@ -27,6 +27,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
     bg_tasks: set = set()  # asyncio keeps only weak references to tasks, so hold them until they finish
     publish_lock = asyncio.Lock()  # one git commit/push at a time in the checkout
     write_lock = asyncio.Lock()  # one clip written at a time, so two saves can't pick the same file name
+    sum_locks: dict[int, asyncio.Lock] = {}  # per entry, so a double tap makes one request
     fetch_failed: dict[int, float] = {}  # entry id -> when its page fetch last failed (not cached as the article)
     publish_state = {"error": ""}
     thumbs.prune(cfg.data_dir / "thumbs")
@@ -359,7 +360,49 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         conn.execute("UPDATE entries SET is_read=1 WHERE id=?", (eid,))
         conn.commit()
         d = {k: row[k] for k in ("id", "feed_id", "url", "title", "author", "published", "starred", "feed_title")}
-        return d | {"html": body, "url": http_only(row["url"]), "is_read": 1}
+        return d | {"html": body, "url": http_only(row["url"]), "is_read": 1,
+                    "summary_on": bool(cfg.summary_key), "summary": row["ai_summary"], "summary_model": row["ai_model"]}
+
+    def _summary_budget() -> bool:
+        """Spend one of today's summaries, or say there are none left. Forage has no login, so the cap is the guard on the key."""
+        day = datetime.now().strftime("%Y-%m-%d")
+        used = int(setting("sum_n", "0")) if setting("sum_day", "") == day else 0
+        if used >= cfg.summary_daily_cap:
+            return False
+        for k, v in (("sum_day", day), ("sum_n", str(used + 1))):
+            conn.execute("INSERT INTO settings(key, value) VALUES(?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (k, v))
+        return True
+
+    @app.post("/api/entries/{eid}/summarize")
+    async def summarize_entry(eid: int, body: dict | None = Body(None)):
+        """Bullet summary of one article, on request, kept on the entry. {"force": true} makes a fresh one."""
+        if not cfg.summary_key:
+            raise HTTPException(404, "Summaries aren't set up on this server.")
+        _entry(eid)
+        async with sum_locks.setdefault(eid, asyncio.Lock()):
+            row = _entry(eid)
+            if row["ai_summary"] and not (body or {}).get("force"):
+                return {"summary": row["ai_summary"], "model": row["ai_model"], "cached": True, "truncated": False}
+            vid = youtube.video_id(row["guid"], row["url"])
+            note = ""
+            if vid:  # a video is summarized from its description and captions
+                snips = await asyncio.to_thread(youtube.fetch_transcript, vid)
+                text = youtube.description_text(row["feed_html"]) + ("\n\nTranscript:\n" + " ".join(t for _, t in snips) if snips else "")
+                note = "" if snips else "No captions were available, so this is from the description only."
+            else:
+                text = summarize.plain_text(await _article_html(row))
+            text = f"Title: {row['title']}\n\n{text}"
+            if len(text) < 300:
+                raise HTTPException(422, "There isn't enough text here to summarize.")
+            if not _summary_budget():
+                raise HTTPException(429, f"Today's limit of {cfg.summary_daily_cap} summaries is used up.")
+            try:
+                out, model = await summarize.summarize(cfg.summary_key, cfg.summary_model, text, cfg.user_agent, cfg.summary_allow_training)
+            except RuntimeError as exc:
+                raise HTTPException(502, str(exc))
+            conn.execute("UPDATE entries SET ai_summary=?, ai_model=?, ai_at=? WHERE id=?", (out, model, feeds.now_iso(), eid))
+        sum_locks.pop(eid, None)
+        return {"summary": out, "model": model, "cached": False, "truncated": len(text) > summarize.MAX_CHARS, "note": note}
 
     @app.post("/api/entries/{eid}/state")
     def set_state(eid: int, body: dict = Body(...)):

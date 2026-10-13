@@ -24,6 +24,7 @@ Not affiliated with Obsidian, Readwise or any feed service.
 - **YouTube.** A channel or playlist feed opens as the video in a privacy-friendly player (`youtube-nocookie.com`) over its description, with links made clickable. Saving writes the Web Clipper's video shape instead: `![](watch URL)`, the full description, and a `## Transcript` of `**m:ss** · text` paragraphs under the video's chapter headings, fetched at save time with [youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api). A video with no captions, or one YouTube won't hand captions for, saves without the transcript section.
 - **Saving is untracked.** The star is the bookmark inside Forage. Save is a push to your inbox: it doesn't mark the article or remember it, so every press writes a new clip (a repeat gets a numbered name). Keeping the inbox tidy is up to you.
 - **Share.** The share button in the article toolbar opens the system share sheet for the article's own address (iOS and iPadOS, and any browser with the Web Share API). Elsewhere it copies the link.
+- **On-demand summaries.** Off unless you give it an [OpenRouter](https://openrouter.ai) key. A toolbar button asks for 4 to 7 bullets on the open article (a video's description and captions for YouTube), shows them above the text labelled AI-written with the model's name, and keeps them on the entry so reopening is free. The default model is `openrouter/free`, which picks among whatever free models are live, restricted to hosts that don't keep or train on prompts; most free models drop out under that rule, so the pool is small and some answers take 10 to 30 seconds. A daily cap (default 100) guards the key. See the environment variables below.
 - **Optional commit and push.** If the vault is a git checkout, a save can also commit just that file and push it, so phones and other machines pick it up through whatever git sync you already use.
 - **Settings in the app.** Inbox folder, commit-and-push, author style and refresh interval are set from a gear button, with no config file.
 - **Find feeds.** Paste a site, page or feed address to list every feed behind it, with built-in rules for Substack, GitHub (releases and commits), Reddit, Medium, YouTube and Bluesky. Or type keywords to search Substack and Feedly.
@@ -69,6 +70,10 @@ Run the tests with `.venv/bin/pytest`.
 | `FORAGE_INBOX_DIR`, `FORAGE_WIKILINK_AUTHOR`, `FORAGE_REFRESH_MINUTES` | see Settings | First-run defaults |
 | `FORAGE_GIT_ROOT` | unset | First-run default: turns on commit-and-push for this checkout |
 | `FORAGE_SYNC_SCRIPT` | unset | **Server-side only.** A script to run after the commit to rebase and push, instead of plain `git pull --rebase` and `git push` |
+| `FORAGE_OPENROUTER_KEY_FILE` (or `OPENROUTER_API_KEY`) | unset | Turns on summaries. Prefer the file: a path to a file holding only the key, mode 600 |
+| `FORAGE_SUMMARY_MODEL` | `openrouter/free` | Any OpenRouter model id, such as a paid one for faster, steadier answers |
+| `FORAGE_SUMMARY_DAILY_CAP` | `100` | Summaries per day, so a key on a login-less app can't be run up |
+| `FORAGE_SUMMARY_ALLOW_TRAINING` | `0` | Set `1` to let hosts that may keep or train on prompts serve free models (a much bigger pool) |
 
 The sync script is deliberately not a setting. Forage has no login, so a script path editable from the UI would let anyone who can reach it run a command on the server.
 

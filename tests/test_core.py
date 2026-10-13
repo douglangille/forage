@@ -343,3 +343,48 @@ def test_youtube_old_description_gets_paragraphs():
     assert youtube.reader_description(old) == '<p>Intro line.</p><p>See <a href="https://x.co/a">https://x.co/a</a> &amp; more<br>next line</p>'
     assert youtube.reader_description("<p>done</p>") == "<p>done</p>"
 
+
+
+def test_summarize_clean_and_text():
+    from forage import summarize
+    assert summarize.clean("<think>hm</think>Sure!\n* One\n2. Two\n```") == "- One\n- Two"
+    assert summarize.clean("") == ""
+    assert summarize.plain_text("<p>a &amp; b</p><p>c</p>").split() == ["a", "&", "b", "c"]
+
+
+def test_summarize_endpoint(tmp_path, monkeypatch):
+    import dataclasses
+    from forage import feeds, summarize
+    calls = []
+
+    async def fake_summarize(key, model, text, ua, allow_training=False):
+        calls.append((key, model))
+        return "- point one\n- point two", "some/model:free"
+
+    monkeypatch.setattr(summarize, "summarize", fake_summarize)
+
+    async def fake_discover(http, url): return url
+    async def fake_get(self, url, **kw):
+        import httpx
+        return httpx.Response(200, content=RSS, request=httpx.Request("GET", url))
+    monkeypatch.setattr(feeds, "discover", fake_discover)
+    monkeypatch.setattr("httpx.AsyncClient.get", fake_get)
+
+    off = create_app(cfg(tmp_path))
+    with TestClient(off) as c:
+        c.post("/api/feeds", json={"url": "https://ex.test/feed"})
+        eid = c.get("/api/entries").json()[0]["id"]
+        assert c.post(f"/api/entries/{eid}/summarize").status_code == 404  # no key, no feature
+        assert c.get(f"/api/entries/{eid}").json()["summary_on"] is False
+
+    on = create_app(dataclasses.replace(cfg(tmp_path), summary_key="k", summary_daily_cap=2))
+    with TestClient(on) as c:
+        eid = c.get("/api/entries").json()[0]["id"]
+        art = c.get(f"/api/entries/{eid}").json()
+        assert art["summary_on"] is True and art["summary"] == ""
+        r = c.post(f"/api/entries/{eid}/summarize").json()
+        assert r["summary"] == "- point one\n- point two" and r["model"] == "some/model:free" and r["cached"] is False
+        assert c.post(f"/api/entries/{eid}/summarize").json()["cached"] is True and len(calls) == 1  # kept: no second call
+        assert c.get(f"/api/entries/{eid}").json()["summary_model"] == "some/model:free"
+        assert c.post(f"/api/entries/{eid}/summarize", json={"force": True}).json()["cached"] is False and len(calls) == 2
+        assert c.post(f"/api/entries/{eid}/summarize", json={"force": True}).status_code == 429  # the daily cap of 2 is spent

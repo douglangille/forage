@@ -114,7 +114,13 @@ a { color: var(--accent); }
 #app[data-focus="1"] .art-scroll::-webkit-scrollbar { display: none; }
 #app[data-focus="1"] .art-body { max-width: none; margin: 0 auto; height: 100%; column-count: var(--cols, 1); column-gap: 3.5em; column-fill: auto; }
 #app[data-focus="1"] #art-pad { display: block; position: absolute; top: 0; width: 1px; height: 1px; visibility: hidden; }
-#app[data-focus="1"] .prose img { max-height: calc(100dvh - 200px); width: auto; max-width: 100%; object-fit: contain; }
+#app[data-focus="1"] .ai-sum { border-left: 3px solid var(--accent); background: var(--hover); border-radius: 0 6px 6px 0; padding: 4px 14px 8px; margin: 0 0 1.4em; font-size: .92em; break-inside: avoid; }
+.ai-sum summary { cursor: pointer; font-family: var(--font-ui, inherit); color: var(--muted); font-size: .85em; padding: 6px 0; }
+.ai-sum ul { margin: .3em 0 .2em; padding-left: 1.2em; }
+.ai-sum li { margin: .35em 0; }
+.ai-sum .redo { font-size: .8em; color: var(--muted); }
+#btn-summary.busy { opacity: .5; }
+.prose img { max-height: calc(100dvh - 200px); width: auto; max-width: 100%; object-fit: contain; }
 #app[data-focus="1"] .prose img, #app[data-focus="1"] .prose figure, #app[data-focus="1"] .prose blockquote, #app[data-focus="1"] .prose pre { break-inside: avoid; }
 #app[data-focus="1"] .prose pre { max-height: calc(100dvh - 200px); overflow: auto; }
 #app[data-focus="1"] .prose h1, #app[data-focus="1"] .prose h2, #app[data-focus="1"] .prose h3, #app[data-focus="1"] .prose h4, #app[data-focus="1"] #art-title { break-after: avoid; }

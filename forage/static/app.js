@@ -27,6 +27,7 @@ const ICONS = {
   mail: "M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM22 7l-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7",
   "mail-open": "M21.2 8.4c.5.38.8.97.8 1.6v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V10a2 2 0 0 1 .8-1.6l8-6a2 2 0 0 1 2.4 0zM22 10l-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 10",
   external: "M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6",
+  list: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01",
   share: "M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M16 6l-4-4-4 4M12 2v13",
   save: "M12 17V3M6 11l6 6 6-6M19 21H5",  // down to a line: into the inbox
 };
@@ -184,6 +185,7 @@ async function openEntry(id, { fromList = true } = {}) {
   $("#art-title").textContent = e?.title || "";
   $("#art-meta").textContent = e ? e.feed_title : "";
   $("#art-content").innerHTML = '<p class="meta">Loading…</p>';
+  renderSummary("");
   $("#art-scroll").scrollTop = 0;
   S.anchor = null;
   syncFocus();
@@ -195,6 +197,8 @@ async function openEntry(id, { fromList = true } = {}) {
     $("#art-title").textContent = a.title;
     $("#art-meta").textContent = [a.feed_title, a.author, new Date(a.published).toLocaleDateString(undefined, { dateStyle: "medium" })].filter(Boolean).join(" · ");
     $("#art-content").innerHTML = a.html;
+    $("#btn-summary").hidden = !a.summary_on;
+    renderSummary(a.summary, a.summary_model);
     $("#art-content").querySelectorAll("a").forEach((l) => (l.target = "_blank"));
     requestAnimationFrame(() => {
       layoutPaging();
@@ -243,6 +247,34 @@ async function share() {
     if (navigator.share) await navigator.share({ title: a.title, url: a.url });
     else { await navigator.clipboard.writeText(a.url); toast("Link copied"); }
   } catch (err) { if (err.name !== "AbortError") toast("Couldn't share: " + err.message); }
+}
+
+// An on-demand summary of the open article: kept by the server, shown above the text. The model's output is escaped, never HTML.
+function renderSummary(text, model, note = "") {
+  const box = $("#art-summary");
+  if (!text) { box.hidden = true; box.innerHTML = ""; return; }
+  const bullets = text.split("\n").map((l) => l.replace(/^-\s+/, "").trim()).filter(Boolean)
+    .map((l) => `<li>${esc(l).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")}</li>`).join("");
+  box.innerHTML = `<details open><summary>Summary · AI-written${model ? " by " + esc(model) : ""}</summary><ul>${bullets}</ul>`
+    + (note ? `<p class="redo">${esc(note)}</p>` : "") + `<p class="redo"><button type="button" class="linkish" id="sum-redo">Summarize again</button></p></details>`;
+  box.hidden = false;
+  $("#sum-redo").onclick = () => summarizeNow(true);
+}
+async function summarizeNow(force = false) {
+  const id = S.cur, b = $("#btn-summary");
+  if (!id || b.classList.contains("busy")) return;
+  const box = $("#art-summary");
+  if (!force && !box.hidden) { box.querySelector("details").open = !box.querySelector("details").open; return; }  // already there: fold it
+  b.classList.add("busy"); b.title = "Summarizing…";
+  if (box.hidden) { box.innerHTML = '<p class="redo">Summarizing…</p>'; box.hidden = false; }
+  try {
+    const r = await api(`/entries/${id}/summarize`, { method: "POST", body: { force } });
+    if (S.cur !== id) return;
+    renderSummary(r.summary, r.model, [r.note, r.truncated ? "Only the first part of a long article was summarized." : ""].filter(Boolean).join(" "));
+  } catch (err) {
+    if (S.cur === id) { if (S.art?.summary) renderSummary(S.art.summary, S.art.summary_model); else { box.hidden = true; box.innerHTML = ""; } }
+    toast(err.message);
+  } finally { b.classList.remove("busy"); b.title = "Summarize this article"; }
 }
 
 async function toggleStar() {
@@ -647,6 +679,7 @@ $("#btn-refresh").onclick = refreshAll;
 document.querySelectorAll(".save-btn").forEach((b) => (b.onclick = save));
 $("#btn-star").onclick = toggleStar;
 $("#btn-share").onclick = share;
+$("#btn-summary").onclick = () => summarizeNow(false);
 $("#btn-unread").onclick = toggleRead;
 $("#btn-prev").onclick = () => step(-1);
 $("#btn-next").onclick = () => step(1);

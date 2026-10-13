@@ -44,6 +44,10 @@ def connect(path: Path) -> sqlite3.Connection:
     conn.execute("PRAGMA synchronous=NORMAL")
     conn.execute("PRAGMA foreign_keys=ON")
     conn.executescript(SCHEMA)
+    have = {r["name"] for r in conn.execute("PRAGMA table_info(entries)")}
+    for col in ("ai_summary", "ai_model", "ai_at"):  # an on-demand summary, kept so reopening an article doesn't ask again
+        if col not in have:
+            conn.execute(f"ALTER TABLE entries ADD COLUMN {col} TEXT NOT NULL DEFAULT ''")
     return conn
 
 
