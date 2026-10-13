@@ -44,7 +44,7 @@
   }
 }
 * { box-sizing: border-box; }
-html, body { height: 100%; margin: 0; overflow: hidden; }
+html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; }
 body { background: var(--bg); color: var(--ink); font: 16px/1.4 var(--font-ui); -webkit-text-size-adjust: 100%; overscroll-behavior: none; }
 button, input, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
@@ -244,7 +244,7 @@ dialog input[type=text], dialog select { display: block; width: 100%; margin-top
 :focus-visible { outline: 2px solid var(--accent, currentColor); outline-offset: -2px; }
 #entries li:focus-visible { outline-offset: -2px; }
 
-/* ---------- Today: the list as a masonry magazine ---------- */
+/* ---------- Recent: the list as a masonry magazine ---------- */
 /* layoutCards() in app.js places each card in the shortest column, so a card with no picture takes no picture's room.
    Cards are absolutely positioned inside the scrolling list, so it only scrolls vertically. */
 #app[data-scope="today"] #entries { position: relative; overflow-x: hidden; padding: 14px 14px calc(14px + var(--sab)); background: var(--bg); }
@@ -272,3 +272,5 @@ dialog input[type=text], dialog select { display: block; width: 100%; margin-top
   #app[data-scope="today"][data-tview="read"] #reader { display: flex; grid-column: 2 / 4; }
   #app[data-scope="today"][data-tview="read"] #btn-back { display: inline-block; }
 }
+
+#art-scroll { overscroll-behavior-x: none; }

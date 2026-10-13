@@ -85,7 +85,7 @@ function renderNav() {
   S.feeds.forEach((f) => (folders[f.folder] ||= []).push(f));
   const item = (sc, label, n, cls = "", err = false) =>
     `<button class="nav-item ${cls} ${err ? "err" : ""} ${scopeKey(S.scope) === scopeKey(sc) ? "sel" : ""}" data-scope='${esc(JSON.stringify(sc))}'><span class="t">${esc(label)}</span>${n ? `<span class="n">${n}</span>` : ""}</button>`;
-  let h = item({ type: "today" }, "Today", 0, "today") + item({ type: "all" }, "All items", total) + item({ type: "starred" }, "Starred", 0);
+  let h = item({ type: "today" }, "Recent", 0, "today") + item({ type: "all" }, "All items", total) + item({ type: "starred" }, "Starred", 0);
   const names = Object.keys(folders).sort((a, b) => (!a - !b) || a.localeCompare(b));  // folders by name, unfiled last
   for (const name of names) {
     const feedsHtml = folders[name].map((f) => item({ type: "feed", id: f.id }, f.title || f.url, f.unread, name ? "nav-feed" : "", !!f.error)).join("");
@@ -108,7 +108,7 @@ async function loadFeeds() { S.feeds = await api("/feeds"); renderNav(); }
 
 function scopeTitle() {
   const sc = S.scope;
-  if (sc.type === "today") return "Today";
+  if (sc.type === "today") return "Recent";
   if (sc.type === "starred") return "Starred";
   if (sc.type === "folder") return sc.name;
   if (sc.type === "feed") return S.feeds.find((f) => f.id === sc.id)?.title || "Feed";
@@ -121,7 +121,7 @@ function query(before) {
   const sc = S.scope;
   if (sc.type === "feed") p.set("feed", sc.id);
   if (sc.type === "folder") p.set("folder", sc.name);
-  if (sc.type === "today") { p.set("since_hours", String(TODAY_HOURS)); p.set("cards", "true"); }
+  if (sc.type === "today") { p.set("since_hours", String(RECENT_HOURS)); p.set("cards", "true"); }
   if (sc.type === "starred") p.set("starred", "true");
   else if (S.unreadOnly) p.set("unread", "true");
   if (S.q) p.set("q", S.q);
@@ -129,7 +129,7 @@ function query(before) {
   return "/entries?" + p;
 }
 
-const TODAY_HOURS = 24;
+const RECENT_HOURS = 48;  // the Recent view (scope type "today" in the code, its first name)
 let loadTok = 0;
 async function loadEntries(append = false) {
   if (append && S.loadingMore) return;
@@ -174,7 +174,7 @@ function cardHtml(e) {
       ${e.summary ? `<div class="snip">${esc(e.summary.slice(0, 200))}</div>` : ""}</div></li>`;
 }
 
-// Masonry for Today: columns of at least CARD_MIN px fill the width and each card goes where the shortest column is.
+// Masonry for Recent: columns of at least CARD_MIN px fill the width and each card goes where the shortest column is.
 // Heights are read after every width is set, so it's one reflow.
 const CARD_MIN = 250, CARD_GAP = 14;
 let layoutQueued = false;
@@ -502,7 +502,7 @@ function turn(d) {
   // The first and last page are the ends: Next/Previous (j/k) move between articles, paging never does.
 }
 function syncFocus() {
-  // On a wide screen Today's cards are their own screen: focus mode belongs to the article, not to them.
+  // On a wide screen Recent's cards are their own screen: focus mode belongs to the article, not to them.
   const onCards = !S.narrow && S.scope.type === "today" && $("#app").dataset.tview !== "read";
   const on = S.focus && !$("#article").hidden && !onCards;
   $("#app").dataset.focus = on ? "1" : "";
@@ -543,6 +543,12 @@ function setFocus(on) {
   // A mouse wheel or trackpad flick turns one page. Momentum events keep refreshing wheelAt, so one flick is one page.
   sc.addEventListener("wheel", (e) => {
     S.saveOK = true;
+    if (focusOn() && Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+      // A sideways swipe scrolls the columns natively. At the first and last page the browser would take it as Back/Forward, so it stops here.
+      const max = sc.scrollWidth - sc.clientWidth - 1;
+      if ((e.deltaX < 0 && sc.scrollLeft <= 0) || (e.deltaX > 0 && sc.scrollLeft >= max)) e.preventDefault();
+      return;
+    }
     if (!focusOn() || e.ctrlKey || e.metaKey || Math.abs(e.deltaY) <= Math.abs(e.deltaX) || Math.abs(e.deltaY) < 4) return;
     const inner = e.target.closest?.("pre, table");
     if (inner && (inner.scrollHeight > inner.clientHeight + 1 || inner.scrollWidth > inner.clientWidth + 1)) return;
@@ -759,7 +765,7 @@ $("#btn-markall").onclick = async () => {
   const body = {};
   if (sc.type === "feed") body.feed = sc.id;
   if (sc.type === "folder") body.folder = sc.name;
-  if (sc.type === "today") body.since_hours = TODAY_HOURS;
+  if (sc.type === "today") body.since_hours = RECENT_HOURS;
   const newest = S.entries[0]?.published;
   if (newest) body.older_than = newest;
   try {
