@@ -364,6 +364,10 @@ function layoutPaging() {
   if (!focusOn()) return;
   setColumns();
   const m = pagerMetrics();
+  // The scroller is wider than a page once the block is capped and centred, so the neighbouring pages would show in the margins.
+  // Clip the scroller to the page itself: the body sits centred between the padding, one page wide.
+  const bw = m.body.getBoundingClientRect().width, left = m.padL + (m.sc.clientWidth - m.padL - m.padR - bw) / 2;
+  m.sc.style.clipPath = `inset(0 ${Math.max(0, m.sc.clientWidth - left - bw)}px 0 ${Math.max(0, left)}px)`;
   // Without this, a short last page can't be scrolled to its own start.
   $("#art-pad").style.left = (m.padL + m.pages * m.stride - m.gap + m.padR - 1) + "px";
   if (!S.moving) {   // never fight a page turn in flight; settle() re-anchors when it ends
@@ -413,7 +417,7 @@ function syncFocus() {
   $("#btn-focus").setAttribute("aria-pressed", S.focus ? "true" : "false");
   setIcon($("#btn-focus"), S.focus ? "minimize" : "maximize");
   $("#art-scroll").scrollLeft = 0;
-  if (!on) { const b = document.querySelector(".art-body"); b.style.maxWidth = ""; b.style.removeProperty("--cols"); }
+  if (!on) { const b = document.querySelector(".art-body"); b.style.maxWidth = ""; b.style.removeProperty("--cols"); $("#art-scroll").style.clipPath = ""; }
   S.target = null; S.moving = false;
   requestAnimationFrame(() => layoutPaging());
 }
