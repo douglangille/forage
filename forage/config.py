@@ -19,6 +19,7 @@ class Config:
     summary_model: str = "openrouter/free"
     summary_daily_cap: int = 100
     summary_allow_training: bool = False
+    summary_fallback_model: str = "anthropic/claude-haiku-5.5"  # paid ($0.10 in / $0.50 out per M tokens); used from the third try. Empty turns it off.
 
     @property
     def db_path(self) -> Path:
@@ -58,4 +59,5 @@ def load() -> Config:
         summary_model=os.environ.get("FORAGE_SUMMARY_MODEL", "openrouter/free"),
         summary_daily_cap=int(os.environ.get("FORAGE_SUMMARY_DAILY_CAP", "100")),
         summary_allow_training=os.environ.get("FORAGE_SUMMARY_ALLOW_TRAINING", "0") == "1",
+        summary_fallback_model=os.environ.get("FORAGE_SUMMARY_FALLBACK_MODEL", "anthropic/claude-haiku-5.5"),
     )

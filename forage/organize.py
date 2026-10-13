@@ -82,17 +82,17 @@ def parse_pick(text: str, folders: list[str]) -> str | None:
     return by_lower.get(name.lower(), "")
 
 
-async def propose(key: str, model: str, feeds: list[dict], ua: str, allow_training: bool = False) -> tuple[dict[int, str], str]:
+async def propose(key: str, model: str, feeds: list[dict], ua: str, allow_training: bool = False, fallback: str = "") -> tuple[dict[int, str], str]:
     ids = {f["id"] for f in feeds}
     return await summarize.complete(
         key, model, SYSTEM, "id | name | site | recent posts\n" + feed_lines(feeds), ua,
-        lambda t: parse_folders(t, ids), allow_training, max_tokens=6000, attempts=5, timeout=60)
+        lambda t: parse_folders(t, ids), allow_training, max_tokens=6000, attempts=4, timeout=60, fallback=fallback)
 
 
-async def pick(key: str, model: str, feed: dict, folders: list[str], ua: str, allow_training: bool = False) -> str:
+async def pick(key: str, model: str, feed: dict, folders: list[str], ua: str, allow_training: bool = False, fallback: str = "") -> str:
     """Existing folder for one new feed, "" if none fits. Raises RuntimeError when the model never gave a usable answer."""
     user = "Folders: " + json.dumps(folders) + "\nFeed: " + _line(feed)
     # parse_pick may return "" (a real answer: none fits), which complete treats as unusable, so wrap it.
     out, _ = await summarize.complete(key, model, PICK_SYSTEM, user, ua, lambda t: (lambda r: None if r is None else [r])(parse_pick(t, folders)),
-                                      allow_training, max_tokens=200, attempts=2)
+                                      allow_training, max_tokens=200, attempts=3, fallback=fallback)
     return out[0]

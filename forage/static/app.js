@@ -4,7 +4,7 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 
 const S = {
   ai: false, undo: false, feeds: [], entries: [], sel: null, cur: null, loadingMore: false, done: false,
-  scope: { type: "all" },           // all | starred | folder | feed
+  scope: { type: "today" },         // today | all | starred | folder | feed
   unreadOnly: true, q: "",
   get narrow() { return matchMedia("(max-width: 899px)").matches; },
 };
@@ -85,7 +85,7 @@ function renderNav() {
   S.feeds.forEach((f) => (folders[f.folder] ||= []).push(f));
   const item = (sc, label, n, cls = "", err = false) =>
     `<button class="nav-item ${cls} ${err ? "err" : ""} ${scopeKey(S.scope) === scopeKey(sc) ? "sel" : ""}" data-scope='${esc(JSON.stringify(sc))}'><span class="t">${esc(label)}</span>${n ? `<span class="n">${n}</span>` : ""}</button>`;
-  let h = item({ type: "all" }, "All items", total) + item({ type: "starred" }, "Starred", 0);
+  let h = item({ type: "today" }, "Today", 0, "today") + item({ type: "all" }, "All items", total) + item({ type: "starred" }, "Starred", 0);
   const names = Object.keys(folders).sort((a, b) => (!a - !b) || a.localeCompare(b));  // folders by name, unfiled last
   for (const name of names) {
     const feedsHtml = folders[name].map((f) => item({ type: "feed", id: f.id }, f.title || f.url, f.unread, name ? "nav-feed" : "", !!f.error)).join("");
@@ -108,6 +108,7 @@ async function loadFeeds() { S.feeds = await api("/feeds"); renderNav(); }
 
 function scopeTitle() {
   const sc = S.scope;
+  if (sc.type === "today") return "Today";
   if (sc.type === "starred") return "Starred";
   if (sc.type === "folder") return sc.name;
   if (sc.type === "feed") return S.feeds.find((f) => f.id === sc.id)?.title || "Feed";
@@ -120,6 +121,7 @@ function query(before) {
   const sc = S.scope;
   if (sc.type === "feed") p.set("feed", sc.id);
   if (sc.type === "folder") p.set("folder", sc.name);
+  if (sc.type === "today") p.set("since_hours", String(TODAY_HOURS));
   if (sc.type === "starred") p.set("starred", "true");
   else if (S.unreadOnly) p.set("unread", "true");
   if (S.q) p.set("q", S.q);
@@ -127,6 +129,7 @@ function query(before) {
   return "/entries?" + p;
 }
 
+const TODAY_HOURS = 24;
 let loadTok = 0;
 async function loadEntries(append = false) {
   if (append && S.loadingMore) return;
@@ -136,31 +139,49 @@ async function loadEntries(append = false) {
     const last = S.entries[S.entries.length - 1];
     const rows = await api(query(append && last ? `${last.published}|${last.id}` : ""));
     if (tok !== loadTok) return;
-    S.entries = append ? S.entries.concat(rows) : rows;
+    S.entries = append ? S.entries.concat(rows) : (S.scope.type === "today" ? leadWithPicture(rows) : rows);
     S.done = rows.length < 50;
     renderList(append);
   } catch (e) { if (tok === loadTok) toast("Couldn't load: " + e.message); }
   finally { if (append) S.loadingMore = false; }
 }
 
+// A magazine opens on a picture: the first entry with an image among the newest few becomes the lead card.
+function leadWithPicture(rows) {
+  const i = rows.slice(0, 8).findIndex((e) => e.card);
+  return i > 0 ? [rows[i], ...rows.slice(0, i), ...rows.slice(i + 1)] : rows;
+}
+
 function renderList(append) {
-  $("#list-title").textContent = scopeTitle();
+  $("#app").dataset.scope = S.scope.type;
+  $("#list-title").textContent = scopeTitle() + (S.scope.type === "today" && S.entries.length ? ` · ${S.entries.length}${S.done ? "" : "+"}` : "");
   $("#btn-filter").classList.toggle("on", S.unreadOnly);
   $("#btn-filter").hidden = S.scope.type === "starred";
   $("#btn-editfeed").hidden = S.scope.type !== "feed";
   const ul = $("#entries");
   const keepTop = ul.scrollTop;
   if (append && ul.children.length && ul.children.length <= S.entries.length) {
-    ul.insertAdjacentHTML("beforeend", S.entries.slice(ul.children.length).map(rowHtml).join(""));  // only the new rows
+    const from = ul.children.length;
+    ul.insertAdjacentHTML("beforeend", S.entries.slice(from).map((e, i) => rowHtml(e, from + i)).join(""));  // only the new rows
   } else {
-    ul.innerHTML = S.entries.map(rowHtml).join("");
+    ul.innerHTML = S.entries.map((e, i) => rowHtml(e, i)).join("");
     if (append) ul.scrollTop = keepTop;
   }
   $("#list-empty").hidden = S.entries.length > 0;
   $("#list-empty").textContent = S.feeds.length ? "Nothing here. Go outside." : "No feeds yet. Add one, or import an OPML file from Manage.";
 }
 
-function rowHtml(e) {
+function cardHtml(e, i) {
+  const lead = i === 0 && !!e.card;
+  return `<li data-id="${e.id}" tabindex="0" role="button" class="card ${lead ? "lead" : ""} ${e.card ? "" : "bare"} ${e.is_read ? "" : "unread"} ${S.cur === e.id ? "sel" : ""}">
+    ${e.card ? `<img class="pic" loading="${lead ? "eager" : "lazy"}" decoding="async" src="${esc(e.card)}" alt="" onerror="this.closest('li').classList.add('bare');this.remove()">` : ""}
+    <div class="cbody"><div class="sub"><span class="dot"></span>${esc(e.feed_title)} · ${ago(e.published)}</div>
+      <div class="ttl">${esc(e.title)}</div>
+      ${e.summary ? `<div class="snip">${esc(e.summary.slice(0, lead ? 320 : 200))}</div>` : ""}</div></li>`;
+}
+
+function rowHtml(e, i) {
+  if (S.scope.type === "today") return cardHtml(e, i);
   return `<li data-id="${e.id}" tabindex="0" role="button" class="${e.is_read ? "" : "unread"} ${S.cur === e.id ? "sel" : ""}">
     <span class="dot"></span>
     <div class="txt"><div class="ttl">${esc(e.title)}</div>
@@ -171,7 +192,7 @@ function rowHtml(e) {
 
 function patchRow(e) {
   const li = $(`#entries li[data-id="${e.id}"]`);
-  if (li) li.outerHTML = rowHtml(e);
+  if (li) li.outerHTML = rowHtml(e, S.entries.indexOf(e));
 }
 
 /* ---------- reader ---------- */
@@ -190,6 +211,7 @@ async function openEntry(id, { fromList = true } = {}) {
   S.anchor = null;
   syncFocus();
   if (S.narrow && fromList) { history.pushState({ view: "reader" }, ""); setView("reader"); }
+  else if (!S.narrow) $("#app").dataset.tview = S.scope.type === "today" ? "read" : "";
   try {
     const a = await api("/entries/" + id);
     if (S.cur !== id) return;
@@ -524,6 +546,7 @@ addEventListener("popstate", () => setView(history.state?.view === "reader" ? "r
 
 async function setScope(sc) {
   S.scope = sc; S.q = ""; $("#q").value = "";
+  $("#app").dataset.tview = "";
   setMenu(false); setView("list");
   renderNav();
   await loadEntries();
@@ -683,7 +706,11 @@ $("#entries").addEventListener("scroll", (e) => {
 });
 $("#btn-menu").onclick = () => setMenu(true);
 $("#scrim").onclick = () => setMenu(false);
-$("#btn-back").onclick = () => { if (history.state?.view === "reader") history.back(); else setView("list"); };
+function backToCards() { $("#app").dataset.tview = ""; $(`#entries li[data-id="${S.cur}"]`)?.scrollIntoView({ block: "nearest" }); }
+$("#btn-back").onclick = () => {
+  if (!S.narrow && S.scope.type === "today") backToCards();
+  else if (history.state?.view === "reader") history.back(); else setView("list");
+};
 $("#btn-refresh").onclick = refreshAll;
 document.querySelectorAll(".save-btn").forEach((b) => (b.onclick = save));
 $("#btn-star").onclick = toggleStar;
@@ -705,6 +732,7 @@ $("#btn-markall").onclick = async () => {
   const body = {};
   if (sc.type === "feed") body.feed = sc.id;
   if (sc.type === "folder") body.folder = sc.name;
+  if (sc.type === "today") body.since_hours = TODAY_HOURS;
   const newest = S.entries[0]?.published;
   if (newest) body.older_than = newest;
   try {
@@ -822,7 +850,7 @@ $("#org-apply").onclick = async () => {
   if (!proposal) return;
   try {
     const r = await api("/folders/apply", { method: "POST", body: { assign: proposal.assign } });
-    S.scope = { type: "all" };
+    S.scope = { type: "today" };
     await loadFeeds(); await loadEntries(); renderManage();
     toast(`${r.moved} feeds moved. Undo is in Manage.`);
     $("#dlg-organize").close(); $("#dlg-manage").showModal(); loadAi();
@@ -856,7 +884,8 @@ addEventListener("keydown", (e) => {
     if (k === "ArrowLeft" || k === "PageUp" || (k === " " && e.shiftKey)) { e.preventDefault(); turn(-1); return; }
     if (k === "Escape") { setFocus(false); return; }
   }
-  if (k === "j") step(1); else if (k === "k") step(-1);
+  if (k === "Escape" && !S.narrow && S.scope.type === "today" && $("#app").dataset.tview === "read") backToCards();
+  else if (k === "j") step(1); else if (k === "k") step(-1);
   else if (k === "s") save(); else if (k === "m") toggleRead();
   else if (k === "o" && S.art?.url) window.open(S.art.url, "_blank", "noopener");
   else if (k === "r") refreshAll(); else if (k === "u") $("#btn-filter").click();

@@ -358,7 +358,7 @@ def test_summarize_endpoint(tmp_path, monkeypatch):
     from forage import feeds, summarize
     calls = []
 
-    async def fake_summarize(key, model, text, ua, allow_training=False):
+    async def fake_summarize(key, model, text, ua, allow_training=False, fallback=""):
         calls.append((key, model))
         return "- point one\n- point two", "some/model:free"
 
@@ -427,11 +427,11 @@ def test_organize_flow(tmp_path, monkeypatch):
     from forage import feeds, organize
     seen = []
 
-    async def fake_propose(key, model, fds, ua, allow_training=False):
+    async def fake_propose(key, model, fds, ua, allow_training=False, fallback=""):
         seen.append(fds)
         return {f["id"]: "Tech" for f in fds}, "m"
 
-    async def fake_pick(key, model, feed, folders, ua, allow_training=False):
+    async def fake_pick(key, model, feed, folders, ua, allow_training=False, fallback=""):
         return "Tech"
 
     async def fake_discover(http, url): return url
@@ -475,3 +475,48 @@ def test_feed_list_carries_last_post(tmp_path, monkeypatch):
     with TestClient(create_app(cfg(tmp_path))) as c:
         c.post("/api/feeds", json={"url": "https://ex.test/feed"})
         assert c.get("/api/feeds").json()[0]["last_post"].startswith("2026-10-08")
+
+
+def test_paid_fallback_from_third_try(monkeypatch):
+    import asyncio
+    import httpx
+    from forage import summarize
+    asked = []
+
+    async def fake_post(self, url, **kw):
+        asked.append(kw["json"]["model"])
+        text = "- one\n- two" if asked[-1] == "paid/model" else ""
+        return httpx.Response(200, json={"model": asked[-1], "choices": [{"message": {"content": text}}]}, request=httpx.Request("POST", url))
+
+    monkeypatch.setattr("httpx.AsyncClient.post", fake_post)
+    out, model = asyncio.run(summarize.summarize("k", "openrouter/free", "text", "ua", fallback="paid/model"))
+    assert asked == ["openrouter/free", "openrouter/free", "paid/model"] and model == "paid/model"
+    asked.clear()
+    with pytest.raises(RuntimeError):  # a model already chosen as paid isn't swapped
+        asyncio.run(summarize.summarize("k", "my/paid", "text", "ua", fallback="paid/model"))
+    assert set(asked) == {"my/paid"}
+
+
+def test_today_window_and_card_thumb(tmp_path, monkeypatch):
+    from forage import feeds
+    async def fake_discover(http, url): return url
+    async def fake_get(self, url, **kw):
+        import httpx
+        return httpx.Response(200, content=RSS, request=httpx.Request("GET", url))
+    monkeypatch.setattr(feeds, "discover", fake_discover)
+    monkeypatch.setattr("httpx.AsyncClient.get", fake_get)
+    with TestClient(create_app(cfg(tmp_path))) as c:
+        c.post("/api/feeds", json={"url": "https://ex.test/feed"})  # its one entry is from 2026-10-08
+        assert len(c.get("/api/entries").json()) == 1
+        assert c.get("/api/entries?since_hours=24").json() == []  # long gone from "today"
+        assert c.get("/api/entries?since_hours=999999").status_code == 422
+        assert c.post("/api/mark-read", json={"since_hours": 24}).json()["marked"] == 0
+
+
+def test_card_thumbnail_is_wider_and_cached_apart(tmp_path):
+    import io
+    from PIL import Image
+    from forage import thumbs
+    buf = io.BytesIO(); Image.new("RGB", (1600, 900), "red").save(buf, "PNG")
+    small, big = thumbs._shrink(buf.getvalue()), thumbs._shrink(buf.getvalue(), thumbs.CARD)
+    assert Image.open(io.BytesIO(small)).size == (112, 112) and Image.open(io.BytesIO(big)).size == thumbs.CARD

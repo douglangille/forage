@@ -7,6 +7,7 @@ import httpx
 URL = "https://openrouter.ai/api/v1/chat/completions"
 MAX_CHARS = 30_000  # of article text sent; the reader is told when the rest was left out
 ATTEMPTS = 3        # the free router can pick a different model each try, and some return nothing at all
+FREE_TRIES = 2       # free-router tries before a configured paid fallback takes over
 ATTEMPT_SECONDS = 25  # a slow free model is abandoned for the next try, not waited on
 # The free router can land on a model that only classifies (a safety or moderation model). Its answer is never a summary.
 NOT_SUMMARIZERS = ("content-safety", "guard", "moderation", "safety")
@@ -34,7 +35,7 @@ def clean(text: str) -> str:
 
 
 async def complete(key: str, model: str, system: str, user: str, ua: str, parse, allow_training: bool = False,
-                   max_tokens: int = 900, attempts: int = ATTEMPTS, timeout: int = ATTEMPT_SECONDS) -> tuple[object, str]:
+                   max_tokens: int = 900, attempts: int = ATTEMPTS, timeout: int = ATTEMPT_SECONDS, fallback: str = "") -> tuple[object, str]:
     """(parse(answer), model that answered). parse returns something falsy for an unusable answer, which retries.
     Raises RuntimeError with a message fit to show the reader."""
     body = {
@@ -44,8 +45,11 @@ async def complete(key: str, model: str, system: str, user: str, ua: str, parse,
         "provider": {"data_collection": "allow" if allow_training else "deny"},  # deny: only hosts that don't keep or train on prompts
     }
     last = "no answer"
+    free = model.endswith(":free") or model == "openrouter/free"
     async with httpx.AsyncClient(timeout=timeout, headers={"Authorization": f"Bearer {key}", "User-Agent": ua}) as http:
-        for _ in range(attempts):
+        for n in range(attempts):
+            if fallback and free and n >= FREE_TRIES:
+                body["model"] = fallback  # two free tries were wasted: the rest go to a paid model that answers
             try:
                 r = await http.post(URL, json=body)
             except httpx.HTTPError as exc:
@@ -78,9 +82,9 @@ async def complete(key: str, model: str, system: str, user: str, ua: str, parse,
     raise RuntimeError(f"No answer: {last}.")
 
 
-async def summarize(key: str, model: str, text: str, ua: str, allow_training: bool = False) -> tuple[str, str]:
+async def summarize(key: str, model: str, text: str, ua: str, allow_training: bool = False, fallback: str = "") -> tuple[str, str]:
     """(bullets, model that answered). Raises RuntimeError with a message fit to show the reader."""
     try:
-        return await complete(key, model, SYSTEM, text[:MAX_CHARS], ua, clean, allow_training)
+        return await complete(key, model, SYSTEM, text[:MAX_CHARS], ua, clean, allow_training, fallback=fallback)
     except RuntimeError as exc:
         raise RuntimeError(str(exc).replace("No answer:", "No summary:", 1))

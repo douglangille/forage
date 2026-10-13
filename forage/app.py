@@ -7,7 +7,7 @@ import re
 import sqlite3
 import time
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi import Body, FastAPI, HTTPException, Query, Request, Response
@@ -142,7 +142,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         if not folders or not feed or not _summary_budget():
             return
         try:
-            folder = await organize.pick(cfg.summary_key, organize_model(), feed[0], folders, cfg.user_agent, cfg.summary_allow_training)
+            folder = await organize.pick(cfg.summary_key, organize_model(), feed[0], folders, cfg.user_agent, cfg.summary_allow_training, cfg.summary_fallback_model)
         except RuntimeError:
             return
         conn.execute("UPDATE feeds SET folder=? WHERE id=?", (folder, fid))
@@ -254,7 +254,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         if not _summary_budget():
             raise HTTPException(429, f"Today's limit of {cfg.summary_daily_cap} AI calls is used up.")
         try:
-            assign, model = await organize.propose(cfg.summary_key, organize_model(), inputs, cfg.user_agent, cfg.summary_allow_training)
+            assign, model = await organize.propose(cfg.summary_key, organize_model(), inputs, cfg.user_agent, cfg.summary_allow_training, cfg.summary_fallback_model)
         except RuntimeError as exc:
             raise HTTPException(502, str(exc))
         names = {f["id"]: f["title"] or f["url"] for f in conn.execute("SELECT id, title, url FROM feeds")}
@@ -368,11 +368,14 @@ def create_app(cfg: Config | None = None) -> FastAPI:
                         headers={"Content-Disposition": 'attachment; filename="forage.opml"'})
 
     # ---- entries ----
+    def _since(hours: int) -> str:
+        return (datetime.now(timezone.utc) - timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
     @app.get("/api/entries")
     def list_entries(
         feed: int | None = None, folder: str | None = None, unread: bool = False,
         starred: bool = False, q: str | None = None, before: str | None = None,
-        limit: int = Query(60, le=200),
+        since_hours: int | None = Query(None, ge=1, le=24 * 365), limit: int = Query(60, le=200),
     ):
         where, args = [], []
         if feed is not None:
@@ -383,6 +386,8 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             where.append("e.is_read=0")
         if starred:
             where.append("e.starred=1")
+        if since_hours:
+            where.append("e.published>=?"); args.append(_since(since_hours))
         if q:
             where.append("(e.title LIKE ? OR e.summary LIKE ? OR e.ai_summary LIKE ?)"); args += [f"%{q}%"] * 3
         if before:  # cursor: "published|id"
@@ -401,16 +406,18 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             r["title"], r["summary"] = html.unescape(r["title"]), html.unescape(r["summary"])
             r["url"] = http_only(r["url"])
             if r["image"]:  # the hash busts the browser's long-lived cache when the entry's image changes
-                r["thumb"] = f"/thumb/{r['id']}?v={thumbs.key(r['image'])[:10]}"
+                v = thumbs.key(r["image"])[:10]
+                r["thumb"] = f"/thumb/{r['id']}?v={v}"
+                r["card"] = f"/thumb/{r['id']}?card=1&v={v}"
         return rows
 
     @app.get("/thumb/{eid}")
-    async def thumb(eid: int):
+    async def thumb(eid: int, card: bool = False):
         row = conn.execute("SELECT image FROM entries WHERE id=?", (eid,)).fetchone()
         if not row or not row["image"]:
             raise HTTPException(404, "no image")
         async with feeds.client(cfg) as http:
-            path = await thumbs.get(http, cfg.data_dir / "thumbs", row["image"])
+            path = await thumbs.get(http, cfg.data_dir / "thumbs", row["image"], card)
         if not path:
             raise HTTPException(404, "no usable image")
         return FileResponse(path, media_type="image/webp", headers={"Cache-Control": "public, max-age=31536000, immutable"})
@@ -494,7 +501,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             if not _summary_budget():
                 raise HTTPException(429, f"Today's limit of {cfg.summary_daily_cap} summaries is used up.")
             try:
-                out, model = await summarize.summarize(cfg.summary_key, cfg.summary_model, text, cfg.user_agent, cfg.summary_allow_training)
+                out, model = await summarize.summarize(cfg.summary_key, cfg.summary_model, text, cfg.user_agent, cfg.summary_allow_training, cfg.summary_fallback_model)
             except RuntimeError as exc:
                 raise HTTPException(502, str(exc))
             conn.execute("UPDATE entries SET ai_summary=?, ai_model=?, ai_at=? WHERE id=?", (out, model, feeds.now_iso(), eid))
@@ -519,6 +526,8 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             where.append("feed_id IN (SELECT id FROM feeds WHERE folder=?)"); args.append(body["folder"])
         if body.get("older_than"):
             where.append("published<=?"); args.append(body["older_than"])
+        if body.get("since_hours"):
+            where.append("published>=?"); args.append(_since(int(body["since_hours"])))
         n = conn.execute(f"UPDATE entries SET is_read=1 WHERE {' AND '.join(where)}", args).rowcount
         conn.commit()
         return {"marked": n}
