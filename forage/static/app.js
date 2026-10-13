@@ -3,7 +3,7 @@ const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 const S = {
-  feeds: [], entries: [], sel: null, cur: null, loadingMore: false, done: false,
+  ai: false, undo: false, feeds: [], entries: [], sel: null, cur: null, loadingMore: false, done: false,
   scope: { type: "all" },           // all | starred | folder | feed
   unreadOnly: true, q: "",
   get narrow() { return matchMedia("(max-width: 899px)").matches; },
@@ -630,6 +630,8 @@ function fillSettings(st) {
   $("#set-git").checked = st.git_push;
   $("#set-wiki").checked = st.wikilink_author;
   $("#set-refresh").value = st.refresh_minutes;
+  $("#set-org-row").hidden = !st.ai_on;
+  $("#set-org").value = st.organize_model; $("#set-org").placeholder = st.default_model;
   const n = $("#set-inbox-note");
   n.classList.toggle("bad", !st.inbox_writable);
   n.textContent = !st.inbox_exists ? "Doesn't exist yet. Forage will create it when you save settings." : st.inbox_writable ? "Saved clips are written here." : "Forage can't write to this folder.";
@@ -650,7 +652,8 @@ $("#form-settings").addEventListener("submit", async (ev) => {
   try {
     const st = await api("/settings", { method: "PUT", body: {
       inbox_dir: $("#set-inbox").value, git_push: $("#set-git").checked,
-      wikilink_author: $("#set-wiki").checked, refresh_minutes: +$("#set-refresh").value } });
+      wikilink_author: $("#set-wiki").checked, refresh_minutes: +$("#set-refresh").value,
+      ...(!$("#set-org-row").hidden && { organize_model: $("#set-org").value }) } });
     fillSettings(st); $("#dlg-settings").close(); toast("Settings saved");
   } catch (e) { $("#set-msg").textContent = e.message; }
   b.disabled = false;
@@ -707,7 +710,7 @@ $("#btn-markall").onclick = async () => {
 let qTimer;
 $("#q").addEventListener("input", (e) => { clearTimeout(qTimer); qTimer = setTimeout(() => { S.q = e.target.value.trim(); loadEntries(); }, 250); });
 
-function openFind() { setMenu(false); $("#add-folder").innerHTML = folderOptions(""); $("#add-folder-new").hidden = true; $("#add-folder-new").value = ""; $("#add-msg").textContent = ""; $("#results").innerHTML = ""; $("#dlg-add").showModal(); $("#add-url").focus(); }
+function openFind() { setMenu(false); $("#add-folder").innerHTML = folderOptions("") + (S.ai ? `<option value="__ai__">Let AI pick</option>` : ""); $("#add-folder-new").hidden = true; $("#add-folder-new").value = ""; $("#add-msg").textContent = ""; $("#results").innerHTML = ""; $("#dlg-add").showModal(); $("#add-url").focus(); }
 $("#btn-add").onclick = openFind;
 $("#manage-find").onclick = () => { $("#dlg-manage").close(); openFind(); };
 $("#add-cancel").onclick = () => $("#dlg-add").close();
@@ -734,8 +737,9 @@ $("#results").addEventListener("click", async (e) => {
   const r = found[+b.dataset.i];
   b.disabled = true; b.textContent = "Adding…";
   try {
-    await api("/feeds", { method: "POST", body: { url: r.url, folder: folderPick($("#add-folder"), $("#add-folder-new")) } });
-    r.subscribed = true; b.textContent = "Added ✓";
+    const pick = folderPick($("#add-folder"), $("#add-folder-new"));
+    const added = await api("/feeds", { method: "POST", body: pick === "__ai__" ? { url: r.url, suggest: true } : { url: r.url, folder: pick } });
+    r.subscribed = true; b.textContent = pick === "__ai__" && added.folder ? `Added to ${added.folder} ✓` : "Added ✓";
     await loadFeeds(); await loadEntries();
   } catch (err) { b.disabled = false; b.textContent = "Add"; $("#add-msg").textContent = err.message; }
 });
@@ -782,7 +786,49 @@ $("#manage-list").addEventListener("change", (e) => {
     if (!input.hidden) input.focus();
   }
 });
-$("#btn-manage").onclick = () => { setMenu(false); S.edit = null; renderManage(); $("#dlg-manage").showModal(); };
+async function loadAi() {
+  try { const st = await api("/settings"); S.ai = st.ai_on; S.undo = st.folders_undo; } catch {}
+  $("#manage-organize").hidden = !S.ai; $("#manage-undo").hidden = !S.undo;
+}
+$("#btn-manage").onclick = () => { setMenu(false); S.edit = null; renderManage(); $("#dlg-manage").showModal(); loadAi(); };
+
+/* ---------- organize with AI: propose, look, apply (and undo) ---------- */
+let proposal = null;
+async function runOrganize() {
+  proposal = null;
+  $("#org-list").innerHTML = ""; $("#org-apply").hidden = $("#org-again").hidden = true;
+  $("#org-msg").textContent = "Reading your feeds and sorting them. This can take half a minute.";
+  if (!$("#dlg-organize").open) $("#dlg-organize").showModal();
+  try {
+    proposal = await api("/folders/organize", { method: "POST" });
+    $("#org-msg").textContent = `Nothing changes until you apply. Sorted by ${proposal.model}.`;
+    $("#org-list").innerHTML = proposal.folders.map((f) =>
+      `<li class="m-head"><span class="t">${esc(f.name || "Unfiled")} <span class="n">${f.feeds.length}</span></span></li>`
+      + f.feeds.map((x) => `<li class="m-feed"><span class="t">${esc(x.title)}</span></li>`).join("")).join("");
+    $("#org-apply").hidden = false;
+  } catch (e) { $("#org-msg").textContent = e.message; }
+  $("#org-again").hidden = false;
+}
+$("#manage-organize").onclick = () => { $("#dlg-manage").close(); runOrganize(); };
+$("#org-again").onclick = runOrganize;
+$("#org-cancel").onclick = () => { $("#dlg-organize").close(); $("#dlg-manage").showModal(); };
+$("#org-apply").onclick = async () => {
+  if (!proposal) return;
+  try {
+    const r = await api("/folders/apply", { method: "POST", body: { assign: proposal.assign } });
+    S.scope = { type: "all" };
+    await loadFeeds(); await loadEntries(); renderManage();
+    toast(`${r.moved} feeds moved. Undo is in Manage.`);
+    $("#dlg-organize").close(); $("#dlg-manage").showModal(); loadAi();
+  } catch (e) { $("#org-msg").textContent = e.message; }
+};
+$("#manage-undo").onclick = async () => {
+  try {
+    const r = await api("/folders/undo", { method: "POST" });
+    S.scope = { type: "all" };
+    await manageRefresh(); toast(`${r.restored} feeds put back`); loadAi();
+  } catch (e) { toast(e.message); }
+};
 $("#opml-file").addEventListener("change", async (e) => {
   const f = e.target.files[0]; if (!f) return;
   try {

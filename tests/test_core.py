@@ -405,3 +405,60 @@ def test_summarize_skips_safety_models(monkeypatch):
     monkeypatch.setattr("httpx.AsyncClient.post", fake_post)
     out, model = asyncio.run(summarize.summarize("k", "openrouter/free", "text", "ua"))
     assert model == "some/real:free" and out == "- one\n- two"  # the safety model's answer was thrown away and the call retried
+
+
+def test_organize_parse_folders():
+    from forage import organize
+    ids = {1, 2, 3, 4, 5}
+    good = '```json\n{"folders": {"Tech": [1, 2], "tech": [3], "News": ["4"], "": [5], "Ghost": [99]}}\n```'
+    assert organize.parse_folders(good, ids) == {1: "Tech", 2: "Tech", 3: "Tech", 4: "News", 5: ""}  # case merged, bad id ignored
+    assert organize.parse_folders('{"folders": {"Other": [1, 2, 3, 4, 5]}}', ids) == {i: "" for i in ids}  # "Other" means unfiled
+    assert organize.parse_folders('{"folders": {"A": [1]}}', ids) is None  # most feeds went missing
+    assert organize.parse_folders("sorry, no", ids) is None
+    assert organize.parse_pick('{"folder": "tech"}', ["Tech", "News"]) == "Tech"
+    assert organize.parse_pick('{"folder": "Invented"}', ["Tech"]) == ""
+    assert organize.parse_pick("nope", ["Tech"]) is None
+    line = organize._line({"id": 7, "title": "T", "site_url": "https://www.ex.test/", "titles": ["a", "b"]})
+    assert line == '7 | T | ex.test | "a"; "b"'
+
+
+def test_organize_flow(tmp_path, monkeypatch):
+    import dataclasses
+    from forage import feeds, organize
+    seen = []
+
+    async def fake_propose(key, model, fds, ua, allow_training=False):
+        seen.append(fds)
+        return {f["id"]: "Tech" for f in fds}, "m"
+
+    async def fake_pick(key, model, feed, folders, ua, allow_training=False):
+        return "Tech"
+
+    async def fake_discover(http, url): return url
+    async def fake_get(self, url, **kw):
+        import httpx
+        return httpx.Response(200, content=RSS, request=httpx.Request("GET", url))
+    monkeypatch.setattr(organize, "propose", fake_propose)
+    monkeypatch.setattr(organize, "pick", fake_pick)
+    monkeypatch.setattr(feeds, "discover", fake_discover)
+    monkeypatch.setattr("httpx.AsyncClient.get", fake_get)
+
+    with TestClient(create_app(cfg(tmp_path))) as c:
+        assert c.post("/api/folders/organize").status_code == 404  # no key, no feature
+    with TestClient(create_app(dataclasses.replace(cfg(tmp_path), summary_key="k"))) as c:
+        a = c.post("/api/feeds", json={"url": "https://a.test/feed", "folder": "Old"}).json()
+        assert c.post("/api/folders/organize").status_code == 422  # one feed isn't worth sorting
+        b = c.post("/api/feeds", json={"url": "https://b.test/feed"}).json()
+        r = c.post("/api/folders/organize").json()
+        assert [f["name"] for f in r["folders"]] == ["Tech"] and len(r["folders"][0]["feeds"]) == 2
+        assert "a.test/feed" not in str(seen[0])  # the feed URL isn't handed to the model
+        assert {f["id"]: f["folder"] for f in c.get("/api/feeds").json()} == {a["id"]: "Old", b["id"]: ""}  # a proposal changes nothing
+        assert c.get("/api/settings").json()["folders_undo"] is False
+        assert c.post("/api/folders/apply", json={"assign": r["assign"]}).json()["moved"] == 2
+        assert {f["folder"] for f in c.get("/api/feeds").json()} == {"Tech"}
+        assert c.get("/api/settings").json()["folders_undo"] is True
+        assert c.post("/api/folders/undo").json()["restored"] == 2
+        assert {f["id"]: f["folder"] for f in c.get("/api/feeds").json()} == {a["id"]: "Old", b["id"]: ""}
+        assert c.post("/api/folders/undo").status_code == 404  # one undo, then it's gone
+        n = c.post("/api/feeds", json={"url": "https://c.test/feed", "suggest": True}).json()
+        assert n["folder"] == "Tech"  # filed by the (faked) model

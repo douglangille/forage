@@ -33,17 +33,19 @@ def clean(text: str) -> str:
     return out if bullets or len(out) >= 150 else ""  # a few words with no bullets is a verdict or an apology, not a summary
 
 
-async def summarize(key: str, model: str, text: str, ua: str, allow_training: bool = False) -> tuple[str, str]:
-    """(bullets, model that answered). Raises RuntimeError with a message fit to show the reader."""
+async def complete(key: str, model: str, system: str, user: str, ua: str, parse, allow_training: bool = False,
+                   max_tokens: int = 900, attempts: int = ATTEMPTS) -> tuple[object, str]:
+    """(parse(answer), model that answered). parse returns something falsy for an unusable answer, which retries.
+    Raises RuntimeError with a message fit to show the reader."""
     body = {
         "model": model,
-        "messages": [{"role": "system", "content": SYSTEM}, {"role": "user", "content": text[:MAX_CHARS]}],
-        "max_tokens": 900,
+        "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+        "max_tokens": max_tokens,
         "provider": {"data_collection": "allow" if allow_training else "deny"},  # deny: only hosts that don't keep or train on prompts
     }
     last = "no answer"
     async with httpx.AsyncClient(timeout=ATTEMPT_SECONDS, headers={"Authorization": f"Bearer {key}", "User-Agent": ua}) as http:
-        for _ in range(ATTEMPTS):
+        for _ in range(attempts):
             try:
                 r = await http.post(URL, json=body)
             except httpx.HTTPError as exc:
@@ -63,10 +65,18 @@ async def summarize(key: str, model: str, text: str, ua: str, allow_training: bo
                 if any(w in str(data.get("model", "")).lower() for w in NOT_SUMMARIZERS):
                     last = "a model that only checks safety answered"
                     continue
-                out = clean(data["choices"][0]["message"].get("content") or "")
+                out = parse(data["choices"][0]["message"].get("content") or "")
             except (ValueError, KeyError, IndexError):
-                out = ""
+                out = None
             if out:
                 return out, data.get("model") or model
-            last = "the model returned nothing"
-    raise RuntimeError(f"No summary: {last}.")
+            last = "the model returned nothing usable"
+    raise RuntimeError(f"No answer: {last}.")
+
+
+async def summarize(key: str, model: str, text: str, ua: str, allow_training: bool = False) -> tuple[str, str]:
+    """(bullets, model that answered). Raises RuntimeError with a message fit to show the reader."""
+    try:
+        return await complete(key, model, SYSTEM, text[:MAX_CHARS], ua, clean, allow_training)
+    except RuntimeError as exc:
+        raise RuntimeError(str(exc).replace("No answer:", "No summary:", 1))

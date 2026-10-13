@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import html
+import json
 import os
 import re
 import sqlite3
@@ -13,7 +14,7 @@ from fastapi import Body, FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import backfill, clip, db, extract, feeds, opml, search, summarize, thumbs, youtube
+from . import backfill, clip, db, extract, feeds, opml, organize, search, summarize, thumbs, youtube
 from .config import Config, load
 
 STATIC = Path(__file__).parent / "static"
@@ -52,6 +53,9 @@ def create_app(cfg: Config | None = None) -> FastAPI:
 
     def wikilink_author() -> bool:
         return setting("wikilink_author", "1" if cfg.wikilink_author else "0") == "1"
+
+    def organize_model() -> str:
+        return setting("organize_model", "") or cfg.summary_model
 
     def refresh_minutes() -> int:
         try:
@@ -118,7 +122,31 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         row = conn.execute("SELECT * FROM feeds WHERE url=?", (feed_url,)).fetchone()
         async with feeds.client(cfg) as http:
             await feeds.refresh_feed(conn, cfg, http, row)
+        if cur.rowcount and body.get("suggest") and cfg.summary_key:
+            await suggest_folder(row["id"])
         return dict(conn.execute("SELECT * FROM feeds WHERE id=?", (row["id"],)).fetchone()) | {"added": bool(cur.rowcount)}
+
+    def feed_inputs(where: str = "", args: tuple = ()) -> list[dict]:
+        """Feeds as the model sees them: id, name, site and the TITLES newest post titles. No feed URL ever goes in."""
+        out = []
+        for f in conn.execute(f"SELECT id, title, site_url FROM feeds {where} ORDER BY id", args).fetchall():
+            titles = [html.unescape(r["title"]) for r in conn.execute(
+                "SELECT title FROM entries WHERE feed_id=? AND title!='' ORDER BY published DESC LIMIT ?", (f["id"], organize.TITLES))]
+            out.append({"id": f["id"], "title": f["title"], "site_url": f["site_url"], "titles": titles})
+        return out
+
+    async def suggest_folder(fid: int) -> None:
+        """File a just-added feed in one of the folders that already exist. Best effort: any failure leaves it unfiled."""
+        folders = sorted({r["folder"] for r in conn.execute("SELECT folder FROM feeds WHERE folder!=''")})
+        feed = feed_inputs("WHERE id=?", (fid,))
+        if not folders or not feed or not _summary_budget():
+            return
+        try:
+            folder = await organize.pick(cfg.summary_key, organize_model(), feed[0], folders, cfg.user_agent, cfg.summary_allow_training)
+        except RuntimeError:
+            return
+        conn.execute("UPDATE feeds SET folder=? WHERE id=?", (folder, fid))
+        conn.commit()
 
     def settings_view() -> dict:
         inbox = inbox_dir()
@@ -133,6 +161,10 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             "wikilink_author": wikilink_author(),
             "refresh_minutes": refresh_minutes(),
             "publish_error": publish_state["error"],
+            "ai_on": bool(cfg.summary_key),
+            "organize_model": setting("organize_model", ""),
+            "default_model": cfg.summary_model,
+            "folders_undo": bool(setting("folders_undo", "")),
         }
 
     @app.get("/api/settings")
@@ -166,6 +198,8 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             if not 5 <= n <= 1440:
                 raise HTTPException(422, "Refresh interval must be between 5 and 1440 minutes")
             updates["refresh_minutes"] = str(n)
+        if "organize_model" in body:
+            updates["organize_model"] = str(body["organize_model"]).strip()[:100]
         for k, v in updates.items():
             conn.execute("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (k, v))
         conn.commit()
@@ -204,6 +238,69 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         n = conn.execute("UPDATE feeds SET folder='' WHERE folder=?", (name,)).rowcount  # feeds are kept, just unfiled
         conn.commit()
         return {"unfiled": n}
+
+    # ---- AI folder sorting: a proposal to look at, then an apply that can be undone ----
+    def put_setting(key: str, value: str) -> None:
+        conn.execute("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key, value))
+
+    @app.post("/api/folders/organize")
+    async def organize_folders():
+        """Propose folders for every feed from a clean slate. Changes nothing: the reader looks, then calls /apply."""
+        if not cfg.summary_key:
+            raise HTTPException(404, "AI isn't set up on this server.")
+        inputs = feed_inputs()
+        if len(inputs) < 2:
+            raise HTTPException(422, "Add a few more feeds first.")
+        if not _summary_budget():
+            raise HTTPException(429, f"Today's limit of {cfg.summary_daily_cap} AI calls is used up.")
+        try:
+            assign, model = await organize.propose(cfg.summary_key, organize_model(), inputs, cfg.user_agent, cfg.summary_allow_training)
+        except RuntimeError as exc:
+            raise HTTPException(502, str(exc))
+        names = {f["id"]: f["title"] or f["url"] for f in conn.execute("SELECT id, title, url FROM feeds")}
+        groups: dict[str, list] = {}
+        for fid, folder in assign.items():
+            groups.setdefault(folder, []).append({"id": fid, "title": names.get(fid, "")})
+        order = sorted(groups, key=lambda n: (not n, n.lower()))
+        return {"model": model, "assign": {str(k): v for k, v in assign.items()},
+                "folders": [{"name": n, "feeds": sorted(groups[n], key=lambda f: f["title"].lower())} for n in order]}
+
+    @app.post("/api/folders/apply")
+    def apply_folders(body: dict = Body(...)):
+        """Set folders from {"assign": {feed id: folder}}. The folders as they were are kept for one /undo."""
+        assign = body.get("assign")
+        if not isinstance(assign, dict):
+            raise HTTPException(400, "assign required")
+        have = {r["id"]: r["folder"] for r in conn.execute("SELECT id, folder FROM feeds")}
+        new = {}
+        for k, v in assign.items():
+            try:
+                fid = int(k)
+            except ValueError:
+                continue
+            if fid in have:
+                new[fid] = organize.folder_name(v)
+        before = {str(fid): have[fid] for fid in new}
+        put_setting("folders_undo", json.dumps(before))
+        for fid, folder in new.items():
+            conn.execute("UPDATE feeds SET folder=? WHERE id=?", (folder, fid))
+        conn.commit()
+        return {"moved": sum(1 for fid in new if new[fid] != have[fid])}
+
+    @app.post("/api/folders/undo")
+    def undo_folders():
+        try:
+            before = json.loads(setting("folders_undo", ""))
+        except ValueError:
+            before = None
+        if not isinstance(before, dict):
+            raise HTTPException(404, "Nothing to undo.")
+        n = 0
+        for k, folder in before.items():
+            n += conn.execute("UPDATE feeds SET folder=? WHERE id=?", (folder, int(k))).rowcount
+        conn.execute("DELETE FROM settings WHERE key='folders_undo'")
+        conn.commit()
+        return {"restored": n}
 
     # ---- backfill: older articles than the feed itself carries ----
     jobs: dict[tuple[int, str], dict] = {}

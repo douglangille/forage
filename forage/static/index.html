@@ -96,9 +96,18 @@
     <button class="btn linkish" id="manage-find">Find feeds…</button>
     <label class="btn linkish">Import OPML<input type="file" id="opml-file" accept=".opml,.xml,text/xml" hidden></label>
     <a class="btn linkish" href="/api/opml" download="forage.opml">Export OPML</a>
+    <button class="btn linkish" id="manage-organize" hidden>Organize with AI…</button>
+    <button class="btn linkish" id="manage-undo" hidden>Undo last organize</button>
   </div>
   <ul id="manage-list"></ul>
   <div class="row"><button class="primary" id="manage-close">Done</button></div>
+</dialog>
+
+<dialog id="dlg-organize">
+  <h3>Organize with AI</h3>
+  <p id="org-msg" class="hint"></p>
+  <ul id="org-list"></ul>
+  <div class="row"><button class="linkish" id="org-cancel">Cancel</button><button class="linkish" id="org-again" hidden>Try again</button><button class="primary" id="org-apply" hidden>Apply</button></div>
 </dialog>
 
 <dialog id="dlg-feed">
@@ -125,6 +134,7 @@
     <p id="set-git-note" class="hint"></p>
     <label class="check"><input id="set-wiki" type="checkbox"> Write the author as a [[wikilink]]</label>
     <label>Check for new articles every <span class="inline"><input id="set-refresh" type="number" min="5" max="1440" step="5" inputmode="numeric"> minutes</span></label>
+    <label id="set-org-row" hidden>AI model for organizing feeds <input id="set-org" type="text" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
     <p id="set-msg" class="msg"></p>
     <div class="row"><button type="button" class="linkish" id="set-cancel">Cancel</button><button class="primary" id="set-save">Save</button></div>
   </form>
