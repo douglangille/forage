@@ -221,7 +221,7 @@ function patchRow(e) {
 
 /* ---------- reader ---------- */
 async function openEntry(id, { fromList = true } = {}) {
-  S.cur = id;
+  S.cur = id; S.peek = false;
   const e = S.entries.find((x) => x.id === id);
   document.querySelectorAll("#entries li.sel").forEach((n) => n.classList.remove("sel"));
   $(`#entries li[data-id="${id}"]`)?.classList.add("sel");
@@ -504,7 +504,7 @@ function turn(d) {
 function syncFocus() {
   // On a wide screen Recent's cards are their own screen: focus mode belongs to the article, not to them.
   const onCards = !S.narrow && S.scope.type === "today" && $("#app").dataset.tview !== "read";
-  const on = S.focus && !$("#article").hidden && !onCards;
+  const on = S.focus && !$("#article").hidden && !onCards && !S.peek;
   $("#app").dataset.focus = on ? "1" : "";
   $("#btn-focus").classList.toggle("on", S.focus);
   $("#btn-focus").setAttribute("aria-pressed", S.focus ? "true" : "false");
@@ -742,6 +742,7 @@ $("#scrim").onclick = () => setMenu(false);
 function backToCards() { $("#app").dataset.tview = ""; syncFocus(); $(`#entries li[data-id="${S.cur}"]`)?.scrollIntoView({ block: "nearest" }); }
 $("#btn-back").onclick = () => {
   if (!S.narrow && S.scope.type === "today") backToCards();
+  else if (!S.narrow && $("#app").dataset.focus === "1") { S.peek = true; syncFocus(); }  // focus hid the lists: show them, keep the preference, the next article refocuses
   else if (history.state?.view === "reader") history.back(); else setView("list");
 };
 $("#btn-refresh").onclick = refreshAll;
