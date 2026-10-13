@@ -65,10 +65,10 @@ def test_api_flow(tmp_path, monkeypatch):
         assert s["path"] == 'Hello-World-1.md'
         text = (c.inbox_dir / s["path"]).read_text()
         assert 'source: "https://ex.test/a"' in text and "word word" in text
-        assert client.post(f"/api/entries/{eid}/save").json()["already"] is True
+        again = client.post(f"/api/entries/{eid}/save").json()  # saving is untracked: a repeat writes a numbered copy
+        assert again["path"] == "Hello-World-1 2.md" and (c.inbox_dir / again["path"]).exists()
         cl = client.get(f"/api/entries/{eid}/clip").json()
-        assert cl["filename"] == "Hello-World-1.md" and cl["markdown"].startswith("---\ntitle:") and cl["saved_path"] == s["path"]
-        assert client.post(f"/api/entries/{eid}/saved", json={"path": ""}).status_code == 400
+        assert cl["filename"] == "Hello-World-1.md" and cl["markdown"].startswith("---\ntitle:") and "saved_path" not in cl
         assert client.get("/api/opml").text.count("xmlUrl") == 1
         assert client.get("/api/feeds").json()[0]["unread"] == 0
 
@@ -283,59 +283,6 @@ def test_backfill_rfc5005_archive_links(tmp_path, monkeypatch):
     st = _run_backfill(c)
     assert st["method"] == "archived feed pages" and st["new"] == 1
 
-
-def test_fill_missing_images(tmp_path, monkeypatch):
-    import httpx
-
-    page = '<html><head><meta property="og:image" content="/pic.jpg"></head><body><p>x</p></body></html>'
-
-    def handler(req: httpx.Request):
-        if req.url.path == "/feed":
-            return httpx.Response(200, content=_rss(("a", "A", "Wed, 08 Oct 2026 10:00:00 GMT")))
-        return httpx.Response(200, text=page, headers={"content-type": "text/html"})
-
-    c = _backfill_client(tmp_path, monkeypatch, handler)
-    import time
-    c.post("/api/opml", content=b'<opml><body><outline type="rss" text="T" xmlUrl="https://ex.test/feed"/></body></opml>')
-    time.sleep(0.3)
-    fid = c.get("/api/feeds").json()[0]["id"]
-    assert c.get("/api/entries").json()[0]["image"] == ""
-    c.post(f"/api/feeds/{fid}/images")
-    for _ in range(100):
-        st = c.get(f"/api/feeds/{fid}/images").json()
-        if st["state"] != "running":
-            break
-        time.sleep(0.1)
-    assert st["new"] == 1 and c.get("/api/entries").json()[0]["image"] == "https://ex.test/pic.jpg"
-
-
-def test_fill_images_replaces_body_image(tmp_path, monkeypatch):
-    import httpx, time
-
-    page = '<html><head><meta property="og:image" content="/og.jpg"></head><body><p>x</p></body></html>'
-    feed = _rss(("a", "A", "Wed, 08 Oct 2026 10:00:00 GMT")).replace(
-        b"<description>s</description>", b'<description>&lt;img src="https://ex.test/inline.png"&gt;</description>')
-
-    def handler(req: httpx.Request):
-        if req.url.path == "/feed":
-            return httpx.Response(200, content=feed)
-        return httpx.Response(200, text=page, headers={"content-type": "text/html"})
-
-    c = _backfill_client(tmp_path, monkeypatch, handler)
-    c.post("/api/opml", content=b'<opml><body><outline type="rss" text="T" xmlUrl="https://ex.test/feed"/></body></opml>')
-    time.sleep(0.3)
-    fid = c.get("/api/feeds").json()[0]["id"]
-    assert c.get("/api/entries").json()[0]["image"] == "https://ex.test/inline.png"
-    c.post(f"/api/feeds/{fid}/images")
-    for _ in range(100):
-        st = c.get(f"/api/feeds/{fid}/images").json()
-        if st["state"] != "running":
-            break
-        time.sleep(0.1)
-    assert st["new"] == 1 and c.get("/api/entries").json()[0]["image"] == "https://ex.test/og.jpg"
-    c.post(f"/api/feeds/{fid}/images")  # already checked: nothing left to look at
-    time.sleep(0.3)
-    assert c.get(f"/api/feeds/{fid}/images").json()["new"] == 0
 
 
 def test_thumbnail_is_small_webp_and_cached(tmp_path, monkeypatch):

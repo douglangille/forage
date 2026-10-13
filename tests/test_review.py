@@ -98,20 +98,9 @@ def test_concurrent_saves_write_one_file(tmp_path, monkeypatch):
             return [r.json() for r in await asyncio.gather(*(c.post(f"/api/entries/{eid}/save") for _ in range(5)))]
 
     res = asyncio.run(race())
-    assert sum(1 for r in res if not r["already"]) == 1
-    assert len(list(conf.inbox_dir.glob("*.md"))) == 1
+    assert len({r["path"] for r in res}) == 5  # every save writes its own file, none overwrites another
+    assert len(list(conf.inbox_dir.glob("*.md"))) == 5
 
-
-def test_saved_and_clip_metadata(tmp_path, monkeypatch):
-    boot(tmp_path, monkeypatch)
-    with TestClient(create_app(cfg(tmp_path))) as c:
-        add_feed(c)
-        eid = c.get("/api/entries").json()[0]["id"]
-        assert c.post(f"/api/entries/{eid}/saved", json={"path": "../x.md"}).status_code == 400
-        assert c.post(f"/api/entries/{eid}/saved", json={"path": "X.md"}).status_code == 200
-        assert c.get(f"/api/entries/{eid}/clip").json()["saved_path"] == "X.md"
-        meta = c.get(f"/api/entries/{eid}/clip").json()
-        assert meta["title"] and meta["feed_title"] == "Feed One" and "is_read" in meta
 
 
 def test_private_hosts_are_refused():

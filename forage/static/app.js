@@ -10,18 +10,6 @@ const S = {
 };
 try { S.unreadOnly = localStorage.getItem("forage.unreadOnly") !== "0"; } catch {}
 
-// Reader text size, per device. The 66ch measure in CSS scales with it, so line length stays constant.
-const FS = { min: 14, max: 28, def: 18 };
-let readSize = FS.def;
-try { const v = parseInt(localStorage.getItem("forage.readSize"), 10); if (v >= FS.min && v <= FS.max) readSize = v; } catch {}
-function applyReadSize(delta = 0) {
-  readSize = Math.min(FS.max, Math.max(FS.min, readSize + delta));
-  document.documentElement.style.setProperty("--read-size", readSize + "px");
-  try { localStorage.setItem("forage.readSize", String(readSize)); } catch {}
-  requestAnimationFrame(() => layoutPaging());
-}
-applyReadSize();
-
 async function api(path, opts = {}) {
   const r = await fetch("/api" + path, {
     method: opts.method || "GET",
@@ -151,7 +139,7 @@ function rowHtml(e) {
   return `<li data-id="${e.id}" tabindex="0" role="button" class="${e.is_read ? "" : "unread"} ${S.cur === e.id ? "sel" : ""}">
     <span class="dot"></span>
     <div class="txt"><div class="ttl">${esc(e.title)}</div>
-      <div class="sub ${e.saved_path ? "saved" : ""}">${esc(e.feed_title)} · ${ago(e.published)}</div>
+      <div class="sub">${esc(e.feed_title)} · ${ago(e.published)}</div>
       ${e.summary ? `<div class="snip">${esc(e.summary.slice(0, 160))}</div>` : ""}</div>
     ${e.thumb ? `<img class="thumb" loading="lazy" decoding="async" width="56" height="56" src="${esc(e.thumb)}" alt="" onerror="this.remove()">` : ""}</li>`;
 }
@@ -192,7 +180,6 @@ async function openEntry(id, { fromList = true } = {}) {
     });
     $("#btn-open").hidden = !a.url;
     if (a.url) $("#btn-open").href = a.url;
-    setSaveBtn(!!a.saved_path);
     $("#btn-star").textContent = a.starred ? "★" : "☆";
     $("#btn-star").classList.toggle("on", !!a.starred);
     if (e) { const was = !e.is_read; e.is_read = 1; e.starred = a.starred; patchRow(e); if (was) bump(e.feed_id, -1); }
@@ -209,29 +196,25 @@ function bump(feedId, d) {
 }
 
 const ICON_SAVE = '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3.5"/></svg>';
-const ICON_DONE = '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3.5"/><path d="m8.5 12.3 2.4 2.4 4.6-5"/></svg>';
-function setSaveBtn(saved, busy = false) {
+// Saving is a one-way push to the inbox, not state the app keeps: the button is always ready, and every press writes a new clip.
+function setSaveBtn(busy = false) {
   document.querySelectorAll(".save-btn").forEach((b) => {
     b.disabled = busy;
-    b.classList.toggle("done", saved);
-    b.innerHTML = saved ? ICON_DONE : ICON_SAVE;
-    b.title = saved ? "Saved to inbox" : "Save to Obsidian inbox (s)";
-    b.setAttribute("aria-pressed", saved);
+    b.innerHTML = ICON_SAVE;
+    b.title = "Save a clip to the Obsidian inbox (s)";
   });
 }
 
 async function save() {
-  if (!S.cur) return;
-  if ($("#btn-save").classList.contains("done") || S.saving) return;
+  if (!S.cur || S.saving) return;
   S.saving = true;
-  setSaveBtn(false, true);
+  setSaveBtn(true);
   try {
     const r = await api(`/entries/${S.cur}/save`, { method: "POST" });
-    setSaveBtn(true);
-    const e = S.entries.find((x) => x.id === S.cur);
-    if (e) { e.saved_path = r.path; patchRow(e); }
-  } catch (err) { setSaveBtn(false); toast("Save failed: " + err.message); }
+    toast("Saved to inbox: " + r.path);
+  } catch (err) { toast("Save failed: " + err.message); }
   S.saving = false;
+  setSaveBtn();
 }
 
 async function toggleStar() {
@@ -277,7 +260,7 @@ function step(d) {
 
 /* ---------- focus mode: paged columns ---------- */
 // The article becomes horizontal pages of columns up to 66ch wide. The browser lays out the columns and scrolls natively (swipe, trackpad);
-// this block turns pages, snaps to a page boundary, shows "n / N", and keeps your place across reflows (resize, A-/A+, images
+// this block turns pages, snaps to a page boundary, shows "n / N", and keeps your place across reflows (resize, images
 // loading) by remembering the text point at the top-left of the page.
 S.focus = false;
 try { S.focus = localStorage.getItem("forage.focus") === "1"; } catch {}
@@ -562,7 +545,7 @@ $("#form-feed").addEventListener("submit", async (ev) => {
 /* Long-running per-feed jobs: start, poll until done, report. */
 async function runFeedJob(path, startBody, busy, done) {
   const f = currentFeed(); if (!f) return;
-  const btns = document.querySelectorAll("#feed-backfill, #feed-images"), msg = $("#feed-msg");
+  const btns = document.querySelectorAll("#feed-backfill"), msg = $("#feed-msg");
   btns.forEach((b) => (b.disabled = true)); msg.textContent = busy;
   try {
     let st = await api(`/feeds/${f.id}/${path}`, { method: "POST", body: startBody });
@@ -579,8 +562,6 @@ async function runFeedJob(path, startBody, busy, done) {
 }
 $("#feed-backfill").onclick = () => runFeedJob("backfill", { limit: 50 }, "Looking for older articles…",
   (st) => `Added ${st.new} older articles (${st.method}), marked read.`);
-$("#feed-images").onclick = () => runFeedJob("images", {}, "Looking for images…",
-  (st) => `Updated ${st.new} images.`);
 $("#feed-remove").onclick = async () => {
   const f = currentFeed(); if (!f) return;
   if (!confirm(`Remove "${f.title || f.url}" and its articles? Anything you saved to Obsidian stays.`)) return;
@@ -645,8 +626,6 @@ $("#btn-refresh").onclick = refreshAll;
 document.querySelectorAll(".save-btn").forEach((b) => (b.onclick = save));
 $("#btn-star").onclick = toggleStar;
 $("#btn-unread").onclick = toggleRead;
-$("#btn-fs-down").onclick = () => applyReadSize(-1);
-$("#btn-fs-up").onclick = () => applyReadSize(1);
 $("#btn-prev").onclick = () => step(-1);
 $("#btn-next").onclick = () => step(1);
 $("#btn-filter").onclick = () => {
@@ -774,7 +753,6 @@ addEventListener("keydown", (e) => {
   else if (k === "s") save(); else if (k === "m") toggleRead();
   else if (k === "o" && S.art?.url) window.open(S.art.url, "_blank", "noopener");
   else if (k === "r") refreshAll(); else if (k === "u") $("#btn-filter").click();
-  else if (k === "-") applyReadSize(-1); else if (k === "+" || k === "=") applyReadSize(1);
   else if (k === "f") toggleStar(); else if (k === "/") { e.preventDefault(); $("#q").focus(); }
   else return;
 });
@@ -795,7 +773,7 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) load
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
 
-setSaveBtn(false);
+setSaveBtn();
 
 (async function init() {
   await loadFeeds();

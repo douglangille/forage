@@ -254,34 +254,3 @@ async def run(conn, cfg: Config, feed, limit: int, progress: dict) -> dict:
                 return {"method": name, "new": n, "message": ""}
     msg = "Nothing older found. This site doesn't offer more than the feed."
     return {"method": None, "new": 0, "message": msg + (f" ({'; '.join(errors)[:150]})" if errors else "")}
-
-
-async def fill_images(conn, cfg: Config, feed, progress: dict, limit: int = 100) -> dict:
-    """Give entries their page's og:image: those with no image, or whose image is just the first picture in the body.
-    Newest first, each page looked at once (img_checked), so repeat runs work through a big feed."""
-    rows = conn.execute(
-        """SELECT id, url, image FROM entries
-           WHERE feed_id=? AND url!='' AND img_checked=0
-             AND (image='' OR instr(feed_html, image)>0 OR instr(COALESCE(full_html,''), image)>0)
-           ORDER BY published DESC, id DESC LIMIT ?""",
-        (feed["id"], limit),
-    ).fetchall()
-    found = 0
-    async with feeds.client(cfg) as http:
-        for row in rows:
-            progress["checked"] += 1
-            await asyncio.sleep(ARTICLE_DELAY)
-            try:
-                r = await http.get(row["url"])
-                if r.status_code != 200 or "html" not in r.headers.get("content-type", "html"):
-                    continue
-                meta = await asyncio.to_thread(trafilatura.extract_metadata, r.text, default_url=str(r.url))
-            except Exception:
-                continue
-            img = urljoin(str(r.url), meta.image) if meta and meta.image else ""
-            conn.execute("UPDATE entries SET img_checked=1, image=? WHERE id=?", (img or row["image"], row["id"]))
-            conn.commit()
-            if img and img != row["image"]:
-                found += 1
-                progress["new"] = found
-    return {"method": "images", "new": found, "message": "" if found else f"No new feature images on the {len(rows)} pages checked."}

@@ -26,7 +26,6 @@ CREATE TABLE IF NOT EXISTS entries (
   image TEXT NOT NULL DEFAULT '',
   is_read INTEGER NOT NULL DEFAULT 0,
   starred INTEGER NOT NULL DEFAULT 0,
-  saved_path TEXT,
   UNIQUE(feed_id, guid)
 );
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -45,9 +44,6 @@ def connect(path: Path) -> sqlite3.Connection:
     conn.execute("PRAGMA synchronous=NORMAL")
     conn.execute("PRAGMA foreign_keys=ON")
     conn.executescript(SCHEMA)
-    if "img_checked" not in {r["name"] for r in conn.execute("PRAGMA table_info(entries)")}:
-        conn.execute("ALTER TABLE entries ADD COLUMN img_checked INTEGER NOT NULL DEFAULT 0")  # og:image lookup done
-        conn.commit()
     return conn
 
 

@@ -17,7 +17,7 @@ from . import backfill, clip, db, extract, feeds, opml, search, thumbs, youtube
 from .config import Config, load
 
 STATIC = Path(__file__).parent / "static"
-ENTRY_COLS = "e.id, e.feed_id, e.url, e.title, e.author, e.published, e.summary, e.image, e.is_read, e.starred, e.saved_path, f.title AS feed_title"
+ENTRY_COLS = "e.id, e.feed_id, e.url, e.title, e.author, e.published, e.summary, e.image, e.is_read, e.starred, f.title AS feed_title"
 
 
 def create_app(cfg: Config | None = None) -> FastAPI:
@@ -26,7 +26,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
     lock = asyncio.Lock()  # one refresh at a time
     bg_tasks: set = set()  # asyncio keeps only weak references to tasks, so hold them until they finish
     publish_lock = asyncio.Lock()  # one git commit/push at a time in the checkout
-    save_locks: dict[int, asyncio.Lock] = {}  # per entry, so a double save can't write two files
+    write_lock = asyncio.Lock()  # one clip written at a time, so two saves can't pick the same file name
     fetch_failed: dict[int, float] = {}  # entry id -> when its page fetch last failed (not cached as the article)
     publish_state = {"error": ""}
     thumbs.prune(cfg.data_dir / "thumbs")
@@ -204,7 +204,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         conn.commit()
         return {"unfiled": n}
 
-    # ---- backfill: older articles than the feed itself carries, and missing feature images ----
+    # ---- backfill: older articles than the feed itself carries ----
     jobs: dict[tuple[int, str], dict] = {}
 
     def start_job(fid: int, kind: str, make):
@@ -235,14 +235,6 @@ def create_app(cfg: Config | None = None) -> FastAPI:
     @app.get("/api/feeds/{fid}/backfill")
     def backfill_status(fid: int):
         return jobs.get((fid, "backfill"), {"state": "idle"})
-
-    @app.post("/api/feeds/{fid}/images")
-    async def start_fill_images(fid: int):
-        return start_job(fid, "images", lambda row, st: backfill.fill_images(conn, cfg, row, st))
-
-    @app.get("/api/feeds/{fid}/images")
-    def fill_images_status(fid: int):
-        return jobs.get((fid, "images"), {"state": "idle"})
 
     @app.delete("/api/feeds/{fid}")
     def delete_feed(fid: int):
@@ -366,7 +358,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         body = await _article_html(row)
         conn.execute("UPDATE entries SET is_read=1 WHERE id=?", (eid,))
         conn.commit()
-        d = {k: row[k] for k in ("id", "feed_id", "url", "title", "author", "published", "starred", "saved_path", "feed_title")}
+        d = {k: row[k] for k in ("id", "feed_id", "url", "title", "author", "published", "starred", "feed_title")}
         return d | {"html": body, "url": http_only(row["url"]), "is_read": 1}
 
     @app.post("/api/entries/{eid}/state")
@@ -409,36 +401,22 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         entry, body_md = await _clip_parts(row)
         text = await asyncio.to_thread(clip.render, entry, body, wikilink_author(), datetime.now().strftime("%Y-%m-%d"), body_md)
         meta = {k: row[k] for k in ("id", "feed_id", "title", "author", "published", "starred", "is_read", "feed_title")}
-        return meta | {"url": entry["url"], "filename": clip.filename(row["title"]) + ".md", "markdown": text, "saved_path": row["saved_path"]}
-
-    @app.post("/api/entries/{eid}/saved")
-    def mark_saved(eid: int, body: dict = Body(...)):
-        """Record that a client wrote the clip itself, so the entry shows as saved."""
-        _entry(eid)
-        path = (body.get("path") or "").strip()
-        if not path or "/" in path or "\\" in path:
-            raise HTTPException(400, "a file name is required")
-        conn.execute("UPDATE entries SET saved_path=?, is_read=1 WHERE id=?", (path, eid))
-        conn.commit()
-        return {"ok": True}
+        return meta | {"url": entry["url"], "filename": clip.filename(row["title"]) + ".md", "markdown": text}
 
     @app.post("/api/entries/{eid}/save")
     async def save_entry(eid: int):
-        _entry(eid)
-        async with save_locks.setdefault(eid, asyncio.Lock()):
-            row = _entry(eid)  # re-read: a save that was waiting on the lock may already have won
-            if row["saved_path"]:
-                return {"path": row["saved_path"], "already": True}
-            body = await _article_html(row)
-            entry, body_md = await _clip_parts(row)
+        """Write a clip. Saving is not tracked: every call writes a new file (a repeat gets a numbered name)."""
+        row = _entry(eid)
+        body = await _article_html(row)
+        entry, body_md = await _clip_parts(row)
+        async with write_lock:
             path = await asyncio.to_thread(clip.write, inbox_dir(), entry, body, wikilink_author(), body_md)
-            conn.execute("UPDATE entries SET saved_path=?, is_read=1 WHERE id=?", (path.name, eid))
-            conn.commit()
-        save_locks.pop(eid, None)
+        conn.execute("UPDATE entries SET is_read=1 WHERE id=?", (eid,))
+        conn.commit()
         root = git_root() if git_enabled() else None
         if root:
             spawn(_publish(root, path, row["title"]))  # background: don't make the tap wait on a push
-        return {"path": path.name, "already": False}
+        return {"path": path.name}
 
     async def _publish(root: Path, path: Path, title: str):
         # The sync hook is server-side only (env): letting the UI set a script would be remote code execution.

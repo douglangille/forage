@@ -51,14 +51,12 @@
         <button id="btn-back" class="icon only-narrow" aria-label="Back">‹</button>
         <div class="spacer"></div>
         <button id="btn-focus" class="icon" aria-pressed="false" title="Focus mode: paged columns (z)" aria-label="Focus mode">⤢</button>
-        <button id="btn-fs-down" class="icon" title="Smaller text (-)" aria-label="Smaller text">A−</button>
-        <button id="btn-fs-up" class="icon" title="Larger text (+)" aria-label="Larger text">A+</button>
         <button id="btn-prev" class="icon" title="Previous (k)" aria-label="Previous">↑</button>
         <button id="btn-next" class="icon" title="Next (j)" aria-label="Next">↓</button>
         <button id="btn-star" class="icon" title="Star" aria-label="Star">☆</button>
         <button id="btn-unread" class="icon" title="Mark unread (m)" aria-label="Mark unread">●</button>
         <a id="btn-open" class="icon" target="_blank" rel="noopener" title="Open original (o)" aria-label="Open original">↗︎</a>
-        <button id="btn-save" class="icon save-btn" title="Save to Obsidian inbox (s)" aria-label="Save to Obsidian"></button>
+        <button id="btn-save" class="icon save-btn" title="Save a clip to the Obsidian inbox (s)" aria-label="Save a clip to Obsidian"></button>
       </header>
       <div class="art-scroll" id="art-scroll">
         <div class="art-body">
@@ -107,7 +105,7 @@
     <label>Folder <select id="feed-folder"></select></label>
     <input id="feed-folder-new" type="text" placeholder="New folder name" autocapitalize="words" hidden>
     <p id="feed-url" class="hint"></p>
-    <div class="row tools"><button type="button" class="linkish" id="feed-backfill">Fetch older articles</button><button type="button" class="linkish" id="feed-images">Update feature images</button></div>
+    <div class="row tools"><button type="button" class="linkish" id="feed-backfill">Fetch older articles</button></div>
     <p id="feed-msg" class="msg"></p>
     <div class="row between"><button type="button" class="danger" id="feed-remove">Remove feed</button><span class="grow"></span><button type="button" class="linkish" id="feed-cancel">Cancel</button><button class="primary" id="feed-save">Save</button></div>
   </form>
