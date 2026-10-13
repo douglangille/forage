@@ -561,7 +561,8 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         entry, body_md = await _clip_parts(row, transcript)
         text = await asyncio.to_thread(clip.render, entry, body, wikilink_author(), datetime.now().strftime("%Y-%m-%d"), body_md)
         meta = {k: row[k] for k in ("id", "feed_id", "title", "author", "published", "starred", "is_read", "feed_title")}
-        return meta | {"url": entry["url"], "filename": clip.filename(row["title"]) + ".md", "markdown": text}
+        return meta | {"url": entry["url"], "filename": clip.filename(row["title"]) + ".md", "markdown": text,
+                       "summary_on": bool(cfg.summary_key), "summary": row["ai_summary"], "summary_model": row["ai_model"]}
 
     @app.post("/api/entries/{eid}/save")
     async def save_entry(eid: int):

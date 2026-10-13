@@ -388,6 +388,8 @@ def test_summarize_endpoint(tmp_path, monkeypatch):
         assert c.post(f"/api/entries/{eid}/summarize").json()["cached"] is True and len(calls) == 1  # kept: no second call
         assert c.get(f"/api/entries/{eid}").json()["summary_model"] == "some/model:free"
         assert [e["id"] for e in c.get("/api/entries?q=point%20two").json()] == [eid]  # search reaches the kept summary
+        clipped = c.get(f"/api/entries/{eid}/clip?transcript=0").json()
+        assert clipped["summary_on"] is True and clipped["summary"] == "- point one\n- point two"  # the plugin reads the kept summary here
         assert c.post(f"/api/entries/{eid}/summarize", json={"force": True}).json()["cached"] is False and len(calls) == 2
         assert c.post(f"/api/entries/{eid}/summarize", json={"force": True}).status_code == 429  # the daily cap of 2 is spent
 
