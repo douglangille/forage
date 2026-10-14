@@ -12,6 +12,7 @@ try { S.unreadOnly = localStorage.getItem("forage.unreadOnly") !== "0"; } catch 
 
 // Stroke icons (Lucide shapes), drawn at 24x24 and recoloured by currentColor. Buttons name theirs with data-icon.
 const ICONS = {
+  dashboard: "M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z",
   menu: "M4 6h16M4 12h16M4 18h16",
   refresh: "M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8M21 3v5h-5",
   settings: "M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z",
@@ -121,7 +122,8 @@ function query(before) {
   const sc = S.scope;
   if (sc.type === "feed") p.set("feed", sc.id);
   if (sc.type === "folder") p.set("folder", sc.name);
-  if (sc.type === "today") { p.set("since_hours", String(RECENT_HOURS)); if (cardsOn()) p.set("cards", "true"); }
+  if (sc.type === "today") p.set("since_hours", String(RECENT_HOURS));
+  if (cardsOn()) p.set("cards", "true");
   if (sc.type === "starred") p.set("starred", "true");
   else if (S.unreadOnly) p.set("unread", "true");
   if (S.q) p.set("q", S.q);
@@ -129,10 +131,13 @@ function query(before) {
   return "/entries?" + p;
 }
 
-// On a phone Recent is the ordinary list: a masonry of cards is hard to scan at that width.
+// Every list can be a masonry of cards or the ordinary list, one switch for all of them. On a phone it's always the list:
+// cards are hard to scan at that width.
 const phoneMQ = matchMedia("(max-width: 599px)");
-const cardsOn = () => S.scope.type === "today" && !phoneMQ.matches;
-phoneMQ.addEventListener("change", () => { if (S.scope.type === "today") loadEntries(); });
+S.cards = true;
+try { S.cards = localStorage.getItem("forage.cards") !== "0"; } catch {}
+const cardsOn = () => S.cards && !phoneMQ.matches;
+phoneMQ.addEventListener("change", () => loadEntries());
 const RECENT_HOURS = 48;  // the Recent view (scope type "today" in the code, its first name)
 let loadTok = 0;
 async function loadEntries(append = false) {
@@ -153,6 +158,8 @@ async function loadEntries(append = false) {
 function renderList(append) {
   $("#app").dataset.scope = S.scope.type;
   $("#app").dataset.cards = cardsOn() ? "1" : "";
+  $("#btn-view").classList.toggle("on", S.cards);
+  $("#btn-view").title = S.cards ? "Showing cards. Switch to the plain list (v)" : "Showing the plain list. Switch to cards (v)";
   $("#list-title").textContent = scopeTitle() + (S.scope.type === "today" && S.entries.length ? ` · ${S.entries.length}${S.done ? "" : "+"}` : "");
   $("#btn-filter").classList.toggle("on", S.unreadOnly);
   $("#btn-filter").hidden = S.scope.type === "starred";
@@ -240,7 +247,7 @@ async function openEntry(id, { fromList = true } = {}) {
   S.anchor = null;
   syncFocus();
   if (S.narrow && fromList) { history.pushState({ view: "reader" }, ""); setView("reader"); }
-  else if (!S.narrow) { $("#app").dataset.tview = S.scope.type === "today" ? "read" : ""; syncFocus(); }
+  else if (!S.narrow) { $("#app").dataset.tview = cardsOn() ? "read" : ""; syncFocus(); }
   try {
     const a = await api("/entries/" + id);
     if (S.cur !== id) return;
@@ -508,7 +515,7 @@ function turn(d) {
 }
 function syncFocus() {
   // On a wide screen Recent's cards are their own screen: focus mode belongs to the article, not to them.
-  const onCards = !S.narrow && S.scope.type === "today" && $("#app").dataset.tview !== "read";
+  const onCards = !S.narrow && cardsOn() && $("#app").dataset.tview !== "read";
   const on = S.focus && !$("#article").hidden && !onCards && !S.peek;
   $("#app").dataset.focus = on ? "1" : "";
   $("#btn-focus").classList.toggle("on", S.focus);
@@ -744,9 +751,17 @@ $("#entries").addEventListener("scroll", (e) => {
 });
 $("#btn-menu").onclick = () => setMenu(true);
 $("#scrim").onclick = () => setMenu(false);
+function setCards(on) {
+  S.cards = on;
+  try { localStorage.setItem("forage.cards", on ? "1" : "0"); } catch {}
+  $("#app").dataset.tview = "";
+  syncFocus();
+  loadEntries();
+}
+$("#btn-view").onclick = () => setCards(!S.cards);
 function backToCards() { $("#app").dataset.tview = ""; syncFocus(); $(`#entries li[data-id="${S.cur}"]`)?.scrollIntoView({ block: "nearest" }); }
 $("#btn-back").onclick = () => {
-  if (!S.narrow && S.scope.type === "today") backToCards();
+  if (!S.narrow && cardsOn()) backToCards();
   else if (!S.narrow && $("#app").dataset.focus === "1") { S.peek = true; syncFocus(); }  // focus hid the lists: show them, keep the preference, the next article refocuses
   else if (history.state?.view === "reader") history.back(); else setView("list");
 };
@@ -923,7 +938,8 @@ addEventListener("keydown", (e) => {
     if (k === "ArrowLeft" || k === "PageUp" || (k === " " && e.shiftKey)) { e.preventDefault(); turn(-1); return; }
     if (k === "Escape") { setFocus(false); return; }
   }
-  if (k === "Escape" && !S.narrow && S.scope.type === "today" && $("#app").dataset.tview === "read") backToCards();
+  if (k === "Escape" && !S.narrow && cardsOn() && $("#app").dataset.tview === "read") backToCards();
+  else if (k === "v") $("#btn-view").click();
   else if (k === "j") step(1); else if (k === "k") step(-1);
   else if (k === "s") save(); else if (k === "m") toggleRead();
   else if (k === "o" && S.art?.url) window.open(S.art.url, "_blank", "noopener");

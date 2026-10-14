@@ -263,11 +263,11 @@ dialog input[type=text], dialog select { display: block; width: 100%; margin-top
 #entries li.card.bare .ttl { font-size: 19px; }
 #entries li.card.bare .snip { -webkit-line-clamp: 8; }
 @media (min-width: 900px) {
-  #app[data-scope="today"] #list-pane { grid-column: 2 / 4; border-right: 0; }
-  #app[data-scope="today"] #reader { display: none; }
-  #app[data-scope="today"][data-tview="read"] #list-pane { display: none; }
-  #app[data-scope="today"][data-tview="read"] #reader { display: flex; grid-column: 2 / 4; }
-  #app[data-scope="today"][data-tview="read"] #btn-back, #app[data-focus="1"] #btn-back { display: inline-block; }
+  #app[data-cards="1"] #list-pane { grid-column: 2 / 4; border-right: 0; }
+  #app[data-cards="1"] #reader { display: none; }
+  #app[data-cards="1"][data-tview="read"] #list-pane { display: none; }
+  #app[data-cards="1"][data-tview="read"] #reader { display: flex; grid-column: 2 / 4; }
+  #app[data-cards="1"][data-tview="read"] #btn-back, #app[data-focus="1"] #btn-back { display: inline-block; }
 }
 
 #art-scroll { overscroll-behavior-x: none; }
@@ -280,3 +280,5 @@ dialog input[type=text], dialog select { display: block; width: 100%; margin-top
   #btn-unread, #btn-open { display: none; }
 }
 @media (max-width: 340px) { .art-head .icon { padding: 6px 9px; } }
+
+@media (max-width: 599px) { #btn-view { display: none; } }
