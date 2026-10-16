@@ -1,13 +1,14 @@
 // App shell cache + stale-while-revalidate for read-only API calls, so recent articles open offline.
-const SHELL = "forage-shell-v57";
-const API = "forage-api-v38";
+const SHELL = "forage-shell-v58";
+const API = "forage-api-v39";
 const THUMBS = "forage-thumbs";  // unversioned: thumbnails are immutable per URL, so they survive shell upgrades
 const THUMBS_MAX = 2000;
 const API_MAX = 300;  // cached API responses kept, oldest out
-const ASSETS = ["/", "/static/style.css", "/static/app.js", "/static/manifest.webmanifest", "/static/icons/icon.svg",
-  "/static/fonts/Libron-Regular.woff2", "/static/fonts/Libron-Italic.woff2", "/static/fonts/Libron-Bold.woff2", "/static/fonts/Libron-BoldItalic.woff2",
-  "/static/fonts/SourceSans3-Regular.woff2", "/static/fonts/SourceSans3-Semibold.woff2", "/static/fonts/SourceSans3-Bold.woff2", "/static/fonts/SourceSans3-It.woff2",
-  "/static/fonts/JetBrainsMonoNerd-Regular.woff2", "/static/fonts/JetBrainsMonoNerd-Bold.woff2"];
+const BASE = new URL(self.registration.scope).pathname;  // "/" or "/forage/", wherever the app is mounted
+const ASSETS = ["", "static/style.css", "static/app.js", "static/manifest.webmanifest", "static/icons/icon.svg",
+  "static/fonts/Libron-Regular.woff2", "static/fonts/Libron-Italic.woff2", "static/fonts/Libron-Bold.woff2", "static/fonts/Libron-BoldItalic.woff2",
+  "static/fonts/SourceSans3-Regular.woff2", "static/fonts/SourceSans3-Semibold.woff2", "static/fonts/SourceSans3-Bold.woff2", "static/fonts/SourceSans3-It.woff2",
+  "static/fonts/JetBrainsMonoNerd-Regular.woff2", "static/fonts/JetBrainsMonoNerd-Bold.woff2"].map((a) => BASE + a);
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(SHELL).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
@@ -21,8 +22,9 @@ self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET") return;
   const url = new URL(req.url);
-  if (url.origin !== location.origin) return;
-  if (url.pathname.startsWith("/thumb/")) {  // cache-first: the ?v= hash makes each URL immutable
+  if (url.origin !== location.origin || !url.pathname.startsWith(BASE)) return;
+  const path = "/" + url.pathname.slice(BASE.length);  // the app's own path, whatever the mount
+  if (path.startsWith("/thumb/")) {  // cache-first: the ?v= hash makes each URL immutable
     e.respondWith(caches.open(THUMBS).then(async (c) => {
       const hit = await c.match(req);
       if (hit) return hit;
@@ -37,10 +39,10 @@ self.addEventListener("fetch", (e) => {
     }));
     return;
   }
-  if (url.pathname.startsWith("/api/") && !url.pathname.startsWith("/api/opml")) {
+  if (path.startsWith("/api/") && !path.startsWith("/api/opml")) {
     e.respondWith(
       fetch(req).then((res) => {
-        if (res.ok && !/^\/api\/(settings|find)/.test(url.pathname)) {
+        if (res.ok && !/^\/api\/(settings|find)/.test(path)) {
           const copy = res.clone();
           caches.open(API).then(async (c) => {
             await c.put(req, copy);
@@ -57,6 +59,6 @@ self.addEventListener("fetch", (e) => {
     fetch(req).then((res) => {
       if (res.ok) { const copy = res.clone(); caches.open(SHELL).then((c) => c.put(req, copy)); }
       return res;
-    }).catch(() => caches.match(req).then((r) => r || caches.match("/")))
+    }).catch(() => caches.match(req).then((r) => r || caches.match(BASE)))
   );
 });

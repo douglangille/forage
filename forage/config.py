@@ -14,6 +14,7 @@ class Config:
     wikilink_author: bool
     user_agent: str
     git_root: Path | None = None
+    base_path: str = ""
     sync_script: str | None = None
     summary_key: str = ""
     summary_model: str = "openrouter/free"
@@ -46,6 +47,7 @@ def load() -> Config:
         inbox_dir=inbox,
         host=os.environ.get("FORAGE_HOST", "127.0.0.1"),
         port=int(os.environ.get("FORAGE_PORT", "8787")),
+        base_path=os.environ.get("FORAGE_BASE_PATH", "").strip().strip("/"),
         refresh_minutes=int(os.environ.get("FORAGE_REFRESH_MINUTES", "30")),
         # Web Clipper's default template writes author as a [[wikilink]] property.
         wikilink_author=os.environ.get("FORAGE_WIKILINK_AUTHOR", "1") != "0",

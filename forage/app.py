@@ -21,6 +21,30 @@ STATIC = Path(__file__).parent / "static"
 ENTRY_COLS = "e.id, e.feed_id, e.url, e.title, e.author, e.published, e.summary, e.image, e.is_read, e.starred, f.title AS feed_title"
 
 
+def under_prefix(app, prefix: str):
+    """Serve `app` under /prefix/ (the app itself still sees plain paths, so a mounted sub-app's lost lifespan isn't a problem).
+    /prefix redirects to /prefix/ (the page's URLs are relative); anything outside the prefix is a 404."""
+    base = "/" + prefix.strip("/")
+
+    async def asgi(scope, receive, send):
+        if scope["type"] not in ("http", "websocket"):
+            return await app(scope, receive, send)
+        path = scope["path"]
+        if path == base and scope["type"] == "http":
+            q = scope.get("query_string", b"")
+            loc = (base + "/" + ("?" + q.decode() if q else "")).encode()
+            return await Response(status_code=308, headers={"location": loc.decode()})(scope, receive, send)
+        if not path.startswith(base + "/"):
+            if scope["type"] == "http":
+                return await Response("not found", status_code=404)(scope, receive, send)
+            return await send({"type": "websocket.close"})
+        rest = path[len(base):]
+        scope = {**scope, "path": rest, "raw_path": rest.encode()}
+        return await app(scope, receive, send)
+
+    return asgi
+
+
 def create_app(cfg: Config | None = None) -> FastAPI:
     cfg = cfg or load()
     conn = db.connect(cfg.db_path)

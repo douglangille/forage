@@ -37,7 +37,7 @@ function setIcon(el, name) { if (el.dataset.icon !== name || !el.firstChild) { e
 document.querySelectorAll("[data-icon]").forEach((el) => setIcon(el, el.dataset.icon));
 
 async function api(path, opts = {}) {
-  const r = await fetch("/api" + path, {
+  const r = await fetch("api" + path, {
     method: opts.method || "GET",
     headers: opts.body ? { "content-type": "application/json" } : undefined,
     body: opts.body ? JSON.stringify(opts.body) : opts.raw,
@@ -180,7 +180,7 @@ function renderList(append) {
 
 function cardHtml(e) {
   return `<li data-id="${e.id}" tabindex="0" role="button" class="card ${e.card ? "" : "bare"} ${e.is_read ? "" : "unread"} ${S.cur === e.id ? "sel" : ""}">
-    ${e.card ? `<img class="pic" loading="lazy" decoding="async" src="${esc(e.card)}" style="aspect-ratio: 1 / ${e.card_ratio}" alt="" onerror="this.closest('li').classList.add('bare');this.remove();layoutCards()">` : ""}
+    ${e.card ? `<img class="pic" loading="lazy" decoding="async" src=".${esc(e.card)}" style="aspect-ratio: 1 / ${e.card_ratio}" alt="" onerror="this.closest('li').classList.add('bare');this.remove();layoutCards()">` : ""}
     <div class="cbody"><div class="sub"><span class="dot"></span>${esc(e.feed_title)} · ${ago(e.published)}</div>
       <div class="ttl">${esc(e.title)}</div>
       ${e.summary ? `<div class="snip">${esc(e.summary.slice(0, 200))}</div>` : ""}</div></li>`;
@@ -223,7 +223,7 @@ function rowHtml(e, i) {
     <div class="txt"><div class="ttl">${esc(e.title)}</div>
       <div class="sub">${esc(e.feed_title)} · ${ago(e.published)}</div>
       ${e.summary ? `<div class="snip">${esc(e.summary.slice(0, 160))}</div>` : ""}</div>
-    ${e.thumb ? `<img class="thumb" loading="lazy" decoding="async" width="56" height="56" src="${esc(e.thumb)}" alt="" onerror="this.remove()">` : ""}</li>`;
+    ${e.thumb ? `<img class="thumb" loading="lazy" decoding="async" width="56" height="56" src=".${esc(e.thumb)}" alt="" onerror="this.remove()">` : ""}</li>`;
 }
 
 function patchRow(e) {
@@ -962,7 +962,7 @@ addEventListener("resize", relayout);
 
 document.addEventListener("visibilitychange", () => { if (!document.hidden) loadFeeds().catch(() => {}); });
 
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 
 setSaveBtn();
 

@@ -1,15 +1,15 @@
 /* Libron (reading), Source Sans 3 (interface) and JetBrainsMono Nerd Font Mono (code blocks), both SIL OFL, self-hosted so iOS has them.
    Libron: https://github.com/nicoverbruggen/libron. JetBrainsMono Nerd: https://github.com/ryanoasis/nerd-fonts (subset). */
-@font-face { font-family: "Libron"; src: url(/static/fonts/Libron-Regular.woff2) format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
-@font-face { font-family: "Libron"; src: url(/static/fonts/Libron-Italic.woff2) format("woff2"); font-weight: 400; font-style: italic; font-display: swap; }
-@font-face { font-family: "Libron"; src: url(/static/fonts/Libron-Bold.woff2) format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
-@font-face { font-family: "Libron"; src: url(/static/fonts/Libron-BoldItalic.woff2) format("woff2"); font-weight: 700; font-style: italic; font-display: swap; }
-@font-face { font-family: "Source Sans 3"; src: url(/static/fonts/SourceSans3-Regular.woff2) format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
-@font-face { font-family: "Source Sans 3"; src: url(/static/fonts/SourceSans3-It.woff2) format("woff2"); font-weight: 400; font-style: italic; font-display: swap; }
-@font-face { font-family: "Source Sans 3"; src: url(/static/fonts/SourceSans3-Semibold.woff2) format("woff2"); font-weight: 600; font-style: normal; font-display: swap; }
-@font-face { font-family: "Source Sans 3"; src: url(/static/fonts/SourceSans3-Bold.woff2) format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
-@font-face { font-family: "JetBrainsMono Nerd Font Mono"; src: url(/static/fonts/JetBrainsMonoNerd-Regular.woff2) format("woff2"); font-weight: 400; font-display: swap; }
-@font-face { font-family: "JetBrainsMono Nerd Font Mono"; src: url(/static/fonts/JetBrainsMonoNerd-Bold.woff2) format("woff2"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "Libron"; src: url(fonts/Libron-Regular.woff2) format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Libron"; src: url(fonts/Libron-Italic.woff2) format("woff2"); font-weight: 400; font-style: italic; font-display: swap; }
+@font-face { font-family: "Libron"; src: url(fonts/Libron-Bold.woff2) format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Libron"; src: url(fonts/Libron-BoldItalic.woff2) format("woff2"); font-weight: 700; font-style: italic; font-display: swap; }
+@font-face { font-family: "Source Sans 3"; src: url(fonts/SourceSans3-Regular.woff2) format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Source Sans 3"; src: url(fonts/SourceSans3-It.woff2) format("woff2"); font-weight: 400; font-style: italic; font-display: swap; }
+@font-face { font-family: "Source Sans 3"; src: url(fonts/SourceSans3-Semibold.woff2) format("woff2"); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: "Source Sans 3"; src: url(fonts/SourceSans3-Bold.woff2) format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "JetBrainsMono Nerd Font Mono"; src: url(fonts/JetBrainsMonoNerd-Regular.woff2) format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "JetBrainsMono Nerd Font Mono"; src: url(fonts/JetBrainsMonoNerd-Bold.woff2) format("woff2"); font-weight: 700; font-display: swap; }
 /* Rosé Pine (dark) / Rosé Pine Dawn (light): same palette roles as the Rosé Pine Obsidian snippets this was matched to
    rose-pine-chrome.css and rose-pine-editor.css. Dawn's iris is darkened to #82699e
    for text-sized accents (the snippet's own contrast note). */

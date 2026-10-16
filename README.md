@@ -70,6 +70,7 @@ Run the tests with `.venv/bin/pytest`.
 |---|---|---|
 | `FORAGE_DATA_DIR` | `data` | Where the SQLite database lives |
 | `FORAGE_HOST` / `FORAGE_PORT` | `127.0.0.1` / `8787` | Listen address |
+| `FORAGE_BASE_PATH` | unset | Serve the app under a subfolder, e.g. `forage` for `https://host/forage/`. Unset is the root. A reverse proxy must pass the prefix through (`.../forage` to `http://127.0.0.1:8787/forage`) |
 | `FORAGE_USER_AGENT` | a generic UA | Sent when fetching feeds and pages |
 | `FORAGE_INBOX_DIR`, `FORAGE_WIKILINK_AUTHOR`, `FORAGE_REFRESH_MINUTES` | see Settings | First-run defaults |
 | `FORAGE_GIT_ROOT` | unset | First-run default: turns on commit-and-push for this checkout |
