@@ -1,7 +1,9 @@
 """AI folder sorting: propose a clean-slate set of folders for every feed, or pick one existing folder for a new feed.
 The model only sees feed names, hosts and recent post titles, never feed URLs (some carry tokens)."""
 import json
+import os
 import re
+from pathlib import Path
 from urllib.parse import urlparse
 
 from . import summarize
@@ -19,10 +21,28 @@ SYSTEM = (
     "Reply with JSON only, no commentary: {\"folders\": {\"Folder name\": [feed ids]}}"
 )
 PICK_SYSTEM = (
-    "You file one new RSS feed into the reader's existing folders. Choose the single best folder from the list, or \"\" if none fits well. "
+    "You file one RSS feed into a folder. \"In use\" folders already hold feeds (a few are named as examples); \"Also available\" folders are a "
+    "standard list that doesn't exist in the reader yet. Prefer an in-use folder when it fits as well as an available one. Judge by what the "
+    "site is generally about, not only its latest titles. Choose the single best folder from the two lists, or \"\" if none fits well: "
+    "an empty answer is better than a stretch. "
     + UNTRUSTED +
     "Reply with JSON only: {\"folder\": \"name\"}"
 )
+VOCAB_DEFAULT = Path(__file__).with_name("folders.json")
+
+
+def load_vocab(path: str | None = None) -> list[str]:
+    """The standard folder names offered beside the ones in use: a JSON list, FORAGE_FOLDERS_FILE if set. Unreadable means none."""
+    try:
+        raw = json.loads(Path(path or os.environ.get("FORAGE_FOLDERS_FILE") or VOCAB_DEFAULT).expanduser().read_text())
+    except (OSError, ValueError):
+        return []
+    seen, out = set(), []
+    for n in raw if isinstance(raw, list) else []:
+        name = folder_name(n)
+        if name and name.lower() not in seen:
+            seen.add(name.lower()); out.append(name)
+    return out
 
 
 def _line(f: dict) -> str:
@@ -82,17 +102,28 @@ def parse_pick(text: str, folders: list[str]) -> str | None:
     return by_lower.get(name.lower(), "")
 
 
-async def propose(key: str, model: str, feeds: list[dict], ua: str, allow_training: bool = False, fallback: str = "") -> tuple[dict[int, str], str]:
+async def propose(key: str, model: str, feeds: list[dict], ua: str, allow_training: bool = False, fallback: str = "",
+                  vocab: list[str] | tuple[str, ...] = ()) -> tuple[dict[int, str], str]:
     ids = {f["id"] for f in feeds}
+    system = SYSTEM + (
+        "Name each folder from this standard list, spelled exactly as written, whenever one fits; invent a name only when none does: "
+        + json.dumps(list(vocab), ensure_ascii=False) + ". " if vocab else "")
     return await summarize.complete(
-        key, model, SYSTEM, "id | name | site | recent posts\n" + feed_lines(feeds), ua,
+        key, model, system, "id | name | site | recent posts\n" + feed_lines(feeds), ua,
         lambda t: parse_folders(t, ids), allow_training, max_tokens=6000, attempts=4, timeout=60, fallback=fallback)
 
 
-async def pick(key: str, model: str, feed: dict, folders: list[str], ua: str, allow_training: bool = False, fallback: str = "") -> str:
-    """Existing folder for one new feed, "" if none fits. Raises RuntimeError when the model never gave a usable answer."""
-    user = "Folders: " + json.dumps(folders) + "\nFeed: " + _line(feed)
+async def pick(key: str, model: str, feed: dict, folders: list[str], ua: str, allow_training: bool = False, fallback: str = "",
+               vocab: list[str] | tuple[str, ...] = (), members: dict[str, list[str]] | None = None) -> str:
+    """A folder for one feed: one in use, or a standard one not yet in use; "" if none fits. Raises RuntimeError when the model never gave a usable answer.
+    `members` names a few feeds already in each folder, so a folder's name has something concrete behind it."""
+    members = members or {}
+    in_use = "\n".join(f"- {f}" + (f" (e.g. {'; '.join(members[f][:3])})" if members.get(f) else "") for f in folders) or "(none yet)"
+    lower = {f.lower() for f in folders}
+    extra = [v for v in vocab if v.lower() not in lower]
+    user = f"In use:\n{in_use}\n\nAlso available: " + json.dumps(extra, ensure_ascii=False) + "\n\nFeed: " + _line(feed)
+    allowed = list(folders) + extra
     # parse_pick may return "" (a real answer: none fits), which complete treats as unusable, so wrap it.
-    out, _ = await summarize.complete(key, model, PICK_SYSTEM, user, ua, lambda t: (lambda r: None if r is None else [r])(parse_pick(t, folders)),
+    out, _ = await summarize.complete(key, model, PICK_SYSTEM, user, ua, lambda t: (lambda r: None if r is None else [r])(parse_pick(t, allowed)),
                                       allow_training, max_tokens=200, attempts=3, fallback=fallback)
     return out[0]

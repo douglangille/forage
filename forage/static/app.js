@@ -72,7 +72,10 @@ function scopeKey(sc) { return sc.type + ":" + (sc.id ?? sc.name ?? ""); }
 
 function folderNames() { return [...new Set(S.feeds.map((f) => f.folder).filter(Boolean))].sort((x, y) => x.localeCompare(y)); }
 function folderOptions(cur = "") {
-  return `<option value="">Unfiled</option>` + folderNames().map((n) => `<option value="${esc(n)}" ${n === cur ? "selected" : ""}>${esc(n)}</option>`).join("") + `<option value="__new__">New folder…</option>`;
+  const used = folderNames(), have = new Set(used.map((n) => n.toLowerCase()));
+  const std = (S.vocab || []).filter((n) => !have.has(n.toLowerCase()));  // the standard list: a folder only appears in the sidebar once a feed is in it
+  const opt = (n) => `<option value="${esc(n)}" ${n === cur ? "selected" : ""}>${esc(n)}</option>`;
+  return `<option value="">Unfiled</option>` + used.map(opt).join("") + (std.length ? `<optgroup label="Standard folders">${std.map(opt).join("")}</optgroup>` : "") + `<option value="__new__">New folder…</option>`;
 }
 function folderPick(sel, input) { return sel.value === "__new__" ? input.value.trim() : sel.value; }
 
@@ -900,7 +903,7 @@ $("#manage-list").addEventListener("change", (e) => {
   }
 });
 async function loadAi() {
-  try { const st = await api("/settings"); S.ai = st.ai_on; S.undo = st.folders_undo; } catch {}
+  try { const st = await api("/settings"); S.ai = st.ai_on; S.undo = st.folders_undo; S.vocab = st.folder_vocab || []; } catch {}
   $("#manage-organize").hidden = !S.ai; $("#manage-undo").hidden = !S.undo;
 }
 $("#btn-manage").onclick = () => { setMenu(false); S.edit = null; renderManage(); $("#dlg-manage").showModal(); loadAi(); };

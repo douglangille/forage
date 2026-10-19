@@ -159,14 +159,25 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             out.append({"id": f["id"], "title": f["title"], "site_url": f["site_url"], "titles": titles})
         return out
 
+    vocab = organize.load_vocab()
+
+    def folders_in_use() -> tuple[list[str], dict[str, list[str]]]:
+        """Folder names that hold feeds, and up to three feed names in each, so the model knows what a folder means."""
+        members: dict[str, list[str]] = {}
+        for r in conn.execute("SELECT folder, title FROM feeds WHERE folder!='' AND title!='' ORDER BY id"):
+            members.setdefault(r["folder"], []).append(html.unescape(r["title"])[:40])
+        names = sorted({r["folder"] for r in conn.execute("SELECT folder FROM feeds WHERE folder!=''")})
+        return names, members
+
     async def suggest_folder(fid: int) -> None:
-        """File a just-added feed in one of the folders that already exist. Best effort: any failure leaves it unfiled."""
-        folders = sorted({r["folder"] for r in conn.execute("SELECT folder FROM feeds WHERE folder!=''")})
+        """File a just-added feed in a folder in use or a standard one. Best effort: any failure leaves it unfiled."""
+        folders, members = folders_in_use()
         feed = feed_inputs("WHERE id=?", (fid,))
-        if not folders or not feed or not _summary_budget():
+        if not (folders or vocab) or not feed or not _summary_budget():
             return
         try:
-            folder = await organize.pick(cfg.summary_key, organize_model(), feed[0], folders, cfg.user_agent, cfg.summary_allow_training, cfg.summary_fallback_model)
+            folder = await organize.pick(cfg.summary_key, organize_model(), feed[0], folders, cfg.user_agent, cfg.summary_allow_training,
+                                         cfg.summary_fallback_model, vocab=vocab, members=members)
         except RuntimeError:
             return
         conn.execute("UPDATE feeds SET folder=? WHERE id=?", (folder, fid))
@@ -180,13 +191,14 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         feed = feed_inputs("WHERE id=?", (fid,))
         if not feed:
             raise HTTPException(404, "no such feed")
-        folders = sorted({r["folder"] for r in conn.execute("SELECT folder FROM feeds WHERE folder!=''")})
-        if not folders:
+        folders, members = folders_in_use()
+        if not (folders or vocab):
             raise HTTPException(422, "There are no folders yet. Make one, or use Organize with AI in Manage.")
         if not _summary_budget():
             raise HTTPException(429, f"Today's limit of {cfg.summary_daily_cap} AI calls is used up.")
         try:
-            folder = await organize.pick(cfg.summary_key, organize_model(), feed[0], folders, cfg.user_agent, cfg.summary_allow_training, cfg.summary_fallback_model)
+            folder = await organize.pick(cfg.summary_key, organize_model(), feed[0], folders, cfg.user_agent, cfg.summary_allow_training,
+                                         cfg.summary_fallback_model, vocab=vocab, members=members)
         except RuntimeError as exc:
             raise HTTPException(502, str(exc))
         return {"folder": folder}
@@ -205,6 +217,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             "refresh_minutes": refresh_minutes(),
             "publish_error": publish_state["error"],
             "ai_on": bool(cfg.summary_key),
+            "folder_vocab": vocab,
             "organize_model": setting("organize_model", ""),
             "default_model": cfg.summary_model,
             "folders_undo": bool(setting("folders_undo", "")),
@@ -297,7 +310,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         if not _summary_budget():
             raise HTTPException(429, f"Today's limit of {cfg.summary_daily_cap} AI calls is used up.")
         try:
-            assign, model = await organize.propose(cfg.summary_key, organize_model(), inputs, cfg.user_agent, cfg.summary_allow_training, cfg.summary_fallback_model)
+            assign, model = await organize.propose(cfg.summary_key, organize_model(), inputs, cfg.user_agent, cfg.summary_allow_training, cfg.summary_fallback_model, vocab=vocab)
         except RuntimeError as exc:
             raise HTTPException(502, str(exc))
         names = {f["id"]: f["title"] or f["url"] for f in conn.execute("SELECT id, title, url FROM feeds")}

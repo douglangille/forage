@@ -429,11 +429,11 @@ def test_organize_flow(tmp_path, monkeypatch):
     from forage import feeds, organize
     seen = []
 
-    async def fake_propose(key, model, fds, ua, allow_training=False, fallback=""):
+    async def fake_propose(key, model, fds, ua, allow_training=False, fallback="", vocab=()):
         seen.append(fds)
         return {f["id"]: "Tech" for f in fds}, "m"
 
-    async def fake_pick(key, model, feed, folders, ua, allow_training=False, fallback=""):
+    async def fake_pick(key, model, feed, folders, ua, allow_training=False, fallback="", vocab=(), members=None):
         return "Tech"
 
     async def fake_discover(http, url): return url
@@ -592,3 +592,48 @@ def test_cards_param_with_no_rows_or_no_pictures_is_an_empty_list_not_an_error(t
         assert c.post("/api/mark-read", json={}).status_code == 200
         r = c.get("/api/entries?cards=true&unread=true")  # everything read, unread filter on: the case that broke grid view
         assert r.status_code == 200 and r.json() == []
+
+
+def test_folder_vocabulary(tmp_path, monkeypatch):
+    import dataclasses, json
+    from forage import feeds, organize, summarize
+    # the shipped list loads, is deduplicated, and a user file replaces it
+    assert "News" in organize.load_vocab() and len(organize.load_vocab()) > 30
+    f = tmp_path / "v.json"; f.write_text(json.dumps(["News", "news", "  Farm  ", "", "Unfiled", 7]))
+    assert organize.load_vocab(str(f)) == ["News", "Farm", "7"]
+    assert organize.load_vocab(str(tmp_path / "missing.json")) == []
+
+    # a pick may be an in-use folder or a standard one; an invented name still counts as none
+    assert organize.parse_pick('{"folder": "canadian news"}', ["Tech", "Canadian News"]) == "Canadian News"
+    assert organize.parse_pick('{"folder": "Made Up"}', ["Tech"]) == ""
+
+    # the model is shown folders in use with example feeds, and the standard ones not yet in use
+    seen = {}
+    async def fake_complete(key, model, system, user, ua, parse, allow_training=False, **kw):
+        seen["user"] = user
+        return parse('{"folder": "News"}'), "m"
+    monkeypatch.setattr(summarize, "complete", fake_complete)
+    got = asyncio.run(organize.pick("k", "m", {"id": 1, "title": "The Conversation", "site_url": "https://theconversation.com", "titles": ["a"]},
+                                    ["Tech"], "ua", vocab=["News", "Tech"], members={"Tech": ["Ars", "Verge"]}))
+    assert got == "News"
+    assert "- Tech (e.g. Ars; Verge)" in seen["user"] and '"News"' in seen["user"].split("Also available:")[1] and '"Tech"' not in seen["user"].split("Also available:")[1]
+
+
+def test_suggest_folder_works_with_no_folders_yet_and_lists_the_standard_ones(tmp_path, monkeypatch):
+    import dataclasses
+    from forage import feeds, organize
+    async def fake_pick(key, model, feed, folders, ua, allow_training=False, fallback="", vocab=(), members=None):
+        assert folders == [] and "News" in vocab
+        return "News"
+    async def fake_discover(http, url): return url
+    async def fake_get(self, url, **kw):
+        import httpx
+        return httpx.Response(200, content=RSS, request=httpx.Request("GET", url))
+    monkeypatch.setattr(organize, "pick", fake_pick)
+    monkeypatch.setattr(feeds, "discover", fake_discover)
+    monkeypatch.setattr("httpx.AsyncClient.get", fake_get)
+    with TestClient(create_app(dataclasses.replace(cfg(tmp_path), summary_key="k"))) as c:
+        a = c.post("/api/feeds", json={"url": "https://a.test/feed"}).json()
+        assert "News" in c.get("/api/settings").json()["folder_vocab"]
+        assert c.post(f"/api/feeds/{a['id']}/suggest-folder").json() == {"folder": "News"}
+        assert c.post("/api/feeds", json={"url": "https://b.test/feed", "suggest": True}).json()["folder"] == "News"  # filed in a folder that didn't exist yet
