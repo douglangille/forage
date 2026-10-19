@@ -148,11 +148,15 @@ async function loadEntries(append = false) {
     const last = S.entries[S.entries.length - 1];
     const rows = await api(query(append && last ? `${last.published}|${last.id}` : ""));
     if (tok !== loadTok) return;
+    if (!append) S.loadErr = null;
     S.entries = append ? S.entries.concat(rows) : rows;
     S.done = rows.length < 50;
     renderList(append);
-  } catch (e) { if (tok === loadTok) toast("Couldn't load: " + e.message); }
-  finally { if (append) S.loadingMore = false; }
+  } catch (e) {
+    if (tok !== loadTok) return;
+    toast("Couldn't load: " + e.message);
+    if (!append) { S.entries = []; S.loadErr = e.message; renderList(false); }  // say so where the list would be, not only in a toast that goes away
+  } finally { if (append) S.loadingMore = false; }
 }
 
 function renderList(append) {
@@ -174,8 +178,14 @@ function renderList(append) {
     if (append) ul.scrollTop = keepTop;
   }
   layoutCards();
-  $("#list-empty").hidden = S.entries.length > 0;
-  $("#list-empty").textContent = S.feeds.length ? "Nothing here. Go outside." : "No feeds yet. Add one, or import an OPML file from Manage.";
+  // An empty list is hidden so the message takes its place: the list is flex:1, and in cards mode it would hold the message at the bottom edge.
+  const empty = !S.entries.length, note = $("#list-empty");
+  ul.hidden = empty;
+  note.hidden = !empty;
+  note.classList.toggle("bad", !!S.loadErr);
+  note.textContent = S.loadErr ? `Couldn't load this list (${S.loadErr}). Tap to try again.`
+    : $("#q").value.trim() ? "Nothing matches that."
+    : S.feeds.length ? "Nothing here. Go outside." : "No feeds yet. Add one, or import an OPML file from Manage.";
 }
 
 function cardHtml(e) {
@@ -759,6 +769,7 @@ function setCards(on) {
   loadEntries();
 }
 $("#btn-view").onclick = () => setCards(!S.cards);
+$("#list-empty").onclick = () => { if (S.loadErr) loadEntries(); };
 function backToCards() { $("#app").dataset.tview = ""; syncFocus(); $(`#entries li[data-id="${S.cur}"]`)?.scrollIntoView({ block: "nearest" }); }
 $("#btn-back").onclick = () => {
   if (!S.narrow && cardsOn()) backToCards();
