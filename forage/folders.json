@@ -41,7 +41,7 @@
  },
  {
   "name": "AI",
-  "about": "AI itself: models, labs, research, commentary, and how to use AI tools. If AI is the subject, it goes here even when the use is productivity."
+  "about": "AI itself: models, labs, research, and commentary on AI as a technology or a force. AI is a tool, not a tactic: if a feed is mainly about getting work done and AI is just how, it belongs in Productivity."
  },
  {
   "name": "Programming"
@@ -79,7 +79,7 @@
  },
  {
   "name": "Productivity",
-  "about": "Working methods: time and task management, focus, habits of effective work. If AI is only incidental to the method, it goes here."
+  "about": "Working methods and tactics: time and task management, focus, habits of effective work, including doing so with AI tools. Productivity is the tactic and AI is the tool, so in a tie between the two, Productivity wins."
  },
  {
   "name": "Note Taking",
