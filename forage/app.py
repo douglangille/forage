@@ -538,7 +538,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         conn.execute("UPDATE entries SET is_read=1 WHERE id=?", (eid,))
         conn.commit()
         d = {k: row[k] for k in ("id", "feed_id", "url", "title", "author", "published", "starred", "feed_title")}
-        return d | {"html": body, "url": http_only(row["url"]), "is_read": 1,
+        return d | {"html": youtube.show_embeds(body), "url": http_only(row["url"]), "is_read": 1,
                     "summary_on": bool(cfg.summary_key), "summary": row["ai_summary"], "summary_model": row["ai_model"]}
 
     def _summary_budget() -> bool:

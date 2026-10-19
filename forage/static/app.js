@@ -595,7 +595,13 @@ function setFocus(on) {
 }
 
 /* ---------- navigation ---------- */
-function setView(v) { $("#app").dataset.view = v; requestAnimationFrame(() => layoutPaging()); }
+/* A player left in the hidden reader keeps playing: blank embeds and pause media when the article is left, restore on return. */
+function stopMedia() {
+  $("#art-content").querySelectorAll("iframe").forEach((f) => { if (f.src && f.src !== "about:blank") { f.dataset.src = f.src; f.src = "about:blank"; } });
+  $("#art-content").querySelectorAll("video, audio").forEach((m) => m.pause());
+}
+function resumeMedia() { $("#art-content").querySelectorAll("iframe[data-src]").forEach((f) => { f.src = f.dataset.src; delete f.dataset.src; }); }
+function setView(v) { $("#app").dataset.view = v; if (v === "reader") resumeMedia(); else if (S.narrow) stopMedia(); requestAnimationFrame(() => layoutPaging()); }
 function setMenu(open) { $("#app").dataset.menu = open ? "open" : ""; }
 // View state lives in history.state, not the URL hash: a reload used to leave a stale "#e…" that made Back a no-op.
 history.replaceState(null, "", location.pathname);
@@ -603,6 +609,7 @@ addEventListener("popstate", () => setView(history.state?.view === "reader" ? "r
 
 async function setScope(sc) {
   S.scope = sc; S.q = ""; $("#q").value = "";
+  if (S.narrow || cardsOn()) stopMedia();  // the reader is hidden by this; a wide list-and-reader layout keeps showing it
   $("#app").dataset.tview = "";
   syncFocus();
   setMenu(false); setView("list");
@@ -782,13 +789,14 @@ $("#scrim").onclick = () => setMenu(false);
 function setCards(on) {
   S.cards = on;
   try { localStorage.setItem("forage.cards", on ? "1" : "0"); } catch {}
+  stopMedia();
   $("#app").dataset.tview = "";
   syncFocus();
   loadEntries();
 }
 $("#btn-view").onclick = () => setCards(!S.cards);
 $("#list-empty").onclick = () => { if (S.loadErr) loadEntries(); };
-function backToCards() { $("#app").dataset.tview = ""; syncFocus(); $(`#entries li[data-id="${S.cur}"]`)?.scrollIntoView({ block: "nearest" }); }
+function backToCards() { stopMedia(); $("#app").dataset.tview = ""; syncFocus(); $(`#entries li[data-id="${S.cur}"]`)?.scrollIntoView({ block: "nearest" }); }
 $("#btn-back").onclick = () => {
   if (!S.narrow && cardsOn()) backToCards();
   else if (!S.narrow && $("#app").dataset.focus === "1") { S.peek = true; syncFocus(); }  // focus hid the lists: show them, keep the preference, the next article refocuses

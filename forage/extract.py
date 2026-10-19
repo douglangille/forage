@@ -7,6 +7,8 @@ import nh3
 import trafilatura
 from markdownify import markdownify
 
+from . import youtube
+
 ALLOWED_TAGS = {
     "a", "p", "br", "hr", "h1", "h2", "h3", "h4", "h5", "h6", "ul", "ol", "li", "blockquote",
     "pre", "code", "em", "strong", "b", "i", "u", "s", "sub", "sup", "img", "figure",
@@ -21,6 +23,7 @@ ALLOWED_ATTRS = {
 
 
 def sanitize(html: str, base_url: str = "") -> str:
+    html = youtube.mark_embeds(html)
     if base_url:
         html = _absolutize(html, base_url)
     return nh3.clean(
@@ -49,7 +52,7 @@ def _absolutize(html: str, base: str) -> str:
 def extract_article(page_html: str, url: str) -> str | None:
     """Readable article HTML from a full page, or None if nothing usable was found."""
     out = trafilatura.extract(
-        page_html,
+        youtube.mark_embeds(page_html),
         url=url,
         output_format="html",
         include_images=True,
@@ -70,7 +73,7 @@ def _text(html: str) -> str:
 
 
 def to_markdown(html: str) -> str:
-    md = markdownify(html, heading_style="ATX", bullets="-", strip=["script", "style"])
+    md = markdownify(youtube.clip_embeds(html), heading_style="ATX", bullets="-", strip=["script", "style"])
     md = re.sub(r"[ \t]+\n", "\n", md)
     return re.sub(r"\n{3,}", "\n\n", md).strip() + "\n"
 

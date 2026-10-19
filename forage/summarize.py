@@ -20,6 +20,7 @@ SYSTEM = (
 
 
 def plain_text(article_html: str) -> str:
+    article_html = re.sub(r"\[\[forage-yt-embed:[\w-]{11}\]\]", "", article_html or "")
     t = re.sub(r"</(p|div|li|h[1-6]|blockquote|tr)>|<br\s*/?>", "\n", article_html or "", flags=re.I)
     t = html.unescape(re.sub(r"<[^>]+>", " ", t))
     return re.sub(r"[ \t]+", " ", re.sub(r"\n\s*\n+", "\n\n", t)).strip()

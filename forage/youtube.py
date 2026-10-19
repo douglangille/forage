@@ -54,6 +54,30 @@ def reader_description(feed_html: str) -> str:
     return description_html(description_text(feed_html))
 
 
+EMBED_TOKEN = "[[forage-yt-embed:%s]]"  # plain text stands in for an embed while the HTML is stored and sanitized: an extractor drops short links and images
+_IFRAME = re.compile(r"<iframe\b[^>]*?\b(?:data-)?src\s*=\s*[\"']([^\"']+)[\"'][^>]*>(?:\s*</iframe>)?", re.I | re.S)
+_EMBED_ID = re.compile(r"(?:youtube(?:-nocookie)?\.com/embed/|youtu\.be/)([\w-]{11})")
+_MARKER = re.compile(r"(?:<p>\s*)?\[\[forage-yt-embed:([\w-]{11})\]\](?:\s*</p>)?")
+
+
+def mark_embeds(html_in: str) -> str:
+    """YouTube iframes in feed or page HTML become a text token, since the sanitizer would drop the iframe."""
+    def swap(m):
+        v = _EMBED_ID.search(m.group(1))
+        return f"<p>{EMBED_TOKEN % v.group(1)}</p>" if v else m.group(0)
+    return _IFRAME.sub(swap, html_in or "")
+
+
+def show_embeds(html_in: str) -> str:
+    """Tokens back into players, for the reader."""
+    return _MARKER.sub(lambda m: player_html(m.group(1)), html_in or "")
+
+
+def clip_embeds(html_in: str) -> str:
+    """Tokens into bare video images, which markdown turns into the Web Clipper's `![](watch url)`."""
+    return _MARKER.sub(lambda m: f'<p><img src="{watch_url(m.group(1))}" alt=""></p>', html_in or "")
+
+
 def player_html(vid: str) -> str:
     return (f'<div class="yt-embed"><iframe src="https://www.youtube-nocookie.com/embed/{vid}" title="YouTube video player" '
             'allow="accelerometer; encrypted-media; picture-in-picture; fullscreen" referrerpolicy="strict-origin-when-cross-origin" '

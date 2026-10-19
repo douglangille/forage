@@ -658,3 +658,13 @@ def test_hide_shorts_is_per_feed(tmp_path):
         feeds._store_entries(conn, fid, feeds.parse(body, ""), "")
     count = lambda fid: conn.execute("SELECT COUNT(*) FROM entries WHERE feed_id=?", (fid,)).fetchone()[0]
     assert (count(1), count(2)) == (2, 1)
+
+
+def test_youtube_embeds_survive_sanitize_and_extraction():
+    from forage import youtube
+    st = extract.sanitize('<p>Hi</p><iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ?x=1"></iframe><iframe src="https://evil.test/x"></iframe>', "https://ex.test/a")
+    assert "evil" not in st and "iframe" not in st and "dQw4w9WgXcQ" in st
+    assert youtube.show_embeds(st).count("youtube-nocookie.com/embed/dQw4w9WgXcQ") == 1
+    assert "![](https://www.youtube.com/watch?v=dQw4w9WgXcQ)" in extract.to_markdown(st)
+    page = "<html><body><article><h1>T</h1><p>" + "word " * 120 + '</p><iframe src="//www.youtube-nocookie.com/embed/dQw4w9WgXcQ"></iframe><p>' + "more " * 120 + "</p></article></body></html>"
+    assert "dQw4w9WgXcQ" in extract.extract_article(page, "https://ex.test/p")
