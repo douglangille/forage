@@ -228,7 +228,7 @@ async def _sitemap(http, feed, first, seen, limit, progress):
 
 
 def _yt_source(feed_url: str) -> str:
-    """The channel's Videos tab (no Shorts) or the playlist a YouTube feed URL names, or "" for any other feed."""
+    """The channel's Videos tab or the playlist a YouTube feed URL names, or "" for any other feed."""
     p = urlsplit(feed_url)
     if p.netloc.lower().removeprefix("www.") != "youtube.com" or not p.path.startswith("/feeds/videos.xml"):
         return ""
@@ -252,31 +252,38 @@ def _yt_detail(vid: str) -> dict | None:
 
 
 async def _youtube(http, feed, first, seen, limit, progress):
-    """YouTube's feed holds only the latest 15. yt-dlp lists the channel's Videos tab, then one request per video for its
-    exact date and description (about 1.5 s each)."""
+    """YouTube's feed holds only the latest 15. yt-dlp lists the channel's Videos tab (and its Shorts tab unless the feed
+    hides Shorts), then one request per video for its exact date and description (about 1.5 s each). `limit` is per tab."""
     source = _yt_source(feed["url"])
     if not source:
         return []
+    tabs = [(source, "watch?v=")]
+    if source.endswith("/videos") and not feed["hide_shorts"]:
+        tabs.append((source[:-len("videos")] + "shorts", "shorts/"))
     have = {g for g in seen if g.startswith("yt:video:")}
     out = []
-    for e in await asyncio.to_thread(_yt_list, source, len(have) + limit + 20):
-        if len(out) >= limit:
-            break
-        guid = f"yt:video:{e['id']}"
-        if guid in have:
-            continue
-        progress["checked"] += 1
-        try:
-            d = await asyncio.to_thread(_yt_detail, e["id"])
-        except Exception:
-            continue
-        await asyncio.sleep(0.5)
-        if not d:
-            continue
-        out.append({"id": guid, "yt_videoid": e["id"], "link": f"https://www.youtube.com/watch?v={e['id']}", "title": d.get("title") or e.get("title") or "",
-                    "author": d.get("channel") or d.get("uploader") or "", "summary": d.get("description") or "",
-                    "published_parsed": datetime.fromtimestamp(d["timestamp"], timezone.utc).timetuple(),
-                    "media_thumbnail": [{"url": f"https://i.ytimg.com/vi/{e['id']}/hqdefault.jpg"}]})
+    for tab, path in tabs:
+        n = 0
+        for e in await asyncio.to_thread(_yt_list, tab, len(have) + limit + 20):
+            if n >= limit:
+                break
+            guid = f"yt:video:{e['id']}"
+            if guid in have:
+                continue
+            progress["checked"] += 1
+            try:
+                d = await asyncio.to_thread(_yt_detail, e["id"])
+            except Exception:
+                continue
+            await asyncio.sleep(0.5)
+            if not d:
+                continue
+            n += 1
+            have.add(guid)
+            out.append({"id": guid, "yt_videoid": e["id"], "link": f"https://www.youtube.com/{path}{e['id']}", "title": d.get("title") or e.get("title") or "",
+                        "author": d.get("channel") or d.get("uploader") or "", "summary": d.get("description") or "",
+                        "published_parsed": datetime.fromtimestamp(d["timestamp"], timezone.utc).timetuple(),
+                        "media_thumbnail": [{"url": f"https://i.ytimg.com/vi/{e['id']}/hqdefault.jpg"}]})
     return out
 
 
