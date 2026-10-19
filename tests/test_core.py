@@ -563,10 +563,10 @@ def test_cards_param_offers_a_picture_only_when_usable(tmp_path, monkeypatch):
         assert "card" not in c.get("/api/entries").json()[0]  # only asked for by Today
 
 
-def test_under_prefix(cfg):
+def test_under_prefix(tmp_path):
     from forage.app import under_prefix
     import httpx
-    app = create_app(cfg)
+    app = create_app(cfg(tmp_path))
     with TestClient(under_prefix(app, "forage"), follow_redirects=False) as c:
         assert c.get("/forage").status_code == 308
         assert c.get("/forage").headers["location"] == "/forage/"
