@@ -275,6 +275,11 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         for key in ("title", "folder"):
             if key in body:
                 conn.execute(f"UPDATE feeds SET {key}=? WHERE id=?", (str(body[key]).strip(), fid))
+        if "hide_shorts" in body:
+            hide = bool(body["hide_shorts"])
+            conn.execute("UPDATE feeds SET hide_shorts=? WHERE id=?", (int(hide), fid))
+            if hide:  # clear the backlog too, but keep anything read or starred
+                conn.execute("DELETE FROM entries WHERE feed_id=? AND is_read=0 AND starred=0 AND url LIKE 'https://www.youtube.com/shorts/%'", (fid,))
         conn.commit()
         return {"ok": True}
 

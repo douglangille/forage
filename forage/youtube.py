@@ -24,6 +24,11 @@ def video_id(guid: str, url: str) -> str:
     return vid if _ID.match(vid) else ""
 
 
+def is_short(url: str) -> bool:
+    p = urlsplit(url or "")
+    return p.netloc.lower().removeprefix("www.").removeprefix("m.") == "youtube.com" and p.path.startswith("/shorts/")
+
+
 def watch_url(vid: str) -> str:
     return f"https://www.youtube.com/watch?v={vid}"
 

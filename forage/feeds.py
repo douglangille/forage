@@ -83,8 +83,12 @@ def parse(body: bytes | str, feed_url: str):
 
 def _store_entries(conn: sqlite3.Connection, feed_id: int, parsed, base_url: str, read: bool = False) -> int:
     new = 0
+    hide_shorts = conn.execute("SELECT hide_shorts FROM feeds WHERE id=?", (feed_id,)).fetchone()
+    hide_shorts = bool(hide_shorts and hide_shorts[0])
     for e in parsed.entries:
         link = http_only(e.get("link", "") or "")
+        if hide_shorts and youtube.is_short(link):
+            continue
         guid = e.get("id") or link or e.get("title", "")
         if not guid:
             continue

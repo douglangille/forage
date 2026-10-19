@@ -666,6 +666,7 @@ $("#btn-editfeed").onclick = () => {
   const u = $("#feed-url"); u.classList.toggle("bad", !!f.error);
   u.textContent = f.error ? `${f.url}\nLast fetch failed: ${f.error}` : f.url; u.style.whiteSpace = "pre-line";
   $("#feed-msg").textContent = "";
+  $("#feed-shorts-row").hidden = !f.url.includes("youtube.com/feeds/"); $("#feed-shorts").checked = !!f.hide_shorts;
   $("#feed-suggest").hidden = !S.ai;
   if (!S.ai) loadAi().then(() => { $("#feed-suggest").hidden = !S.ai; });  // in case the first check hadn't answered yet
   $("#dlg-feed").showModal();
@@ -691,7 +692,7 @@ $("#form-feed").addEventListener("submit", async (ev) => {
   if ($("#feed-folder").value === "__new__" && !folder) { $("#feed-msg").textContent = "Name the new folder"; return; }
   const b = $("#feed-save"); b.disabled = true;
   try {
-    await api("/feeds/" + f.id, { method: "PATCH", body: { title: $("#feed-title").value, folder } });
+    await api("/feeds/" + f.id, { method: "PATCH", body: { title: $("#feed-title").value, folder, hide_shorts: $("#feed-shorts").checked } });
     await loadFeeds(); renderList(); $("#dlg-feed").close(); toast("Feed updated");
   } catch (e) { $("#feed-msg").textContent = e.message; }
   b.disabled = false;

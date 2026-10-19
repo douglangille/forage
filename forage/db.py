@@ -48,6 +48,8 @@ def connect(path: Path) -> sqlite3.Connection:
     for col in ("ai_summary", "ai_model", "ai_at"):  # an on-demand summary, kept so reopening an article doesn't ask again
         if col not in have:
             conn.execute(f"ALTER TABLE entries ADD COLUMN {col} TEXT NOT NULL DEFAULT ''")
+    if "hide_shorts" not in {r["name"] for r in conn.execute("PRAGMA table_info(feeds)")}:  # per feed: drop YouTube Shorts on fetch
+        conn.execute("ALTER TABLE feeds ADD COLUMN hide_shorts INTEGER NOT NULL DEFAULT 0")
     return conn
 
 

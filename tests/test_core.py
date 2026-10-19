@@ -643,3 +643,18 @@ def test_suggest_folder_works_with_no_folders_yet_and_lists_the_standard_ones(tm
         assert "News" in c.get("/api/settings").json()["folder_vocab"]
         assert c.post(f"/api/feeds/{a['id']}/suggest-folder").json() == {"folder": "News"}
         assert c.post("/api/feeds", json={"url": "https://b.test/feed", "suggest": True}).json()["folder"] == "News"  # filed in a folder that didn't exist yet
+
+
+def test_hide_shorts_is_per_feed(tmp_path):
+    from forage import db, feeds
+    yt = lambda vid, kind: f"<entry><id>yt:video:{vid}</id><yt:videoId>{vid}</yt:videoId><title>{vid}</title><link rel='alternate' href='https://www.youtube.com/{kind}'/><published>2026-10-08T10:00:00+00:00</published></entry>"
+    body = ("<feed xmlns='http://www.w3.org/2005/Atom' xmlns:yt='http://www.youtube.com/xml/schemas/2015'>"
+            + yt("aaaaaaaaaaa", "watch?v=aaaaaaaaaaa") + yt("bbbbbbbbbbb", "shorts/bbbbbbbbbbb") + "</feed>")
+    conn = db.connect(tmp_path / "f.db")
+    for fid in (1, 2):
+        conn.execute("INSERT INTO feeds (id, url) VALUES (?,?)", (fid, f"https://www.youtube.com/feeds/videos.xml?channel_id=UC{fid}"))
+    conn.execute("UPDATE feeds SET hide_shorts=1 WHERE id=2")
+    for fid in (1, 2):
+        feeds._store_entries(conn, fid, feeds.parse(body, ""), "")
+    count = lambda fid: conn.execute("SELECT COUNT(*) FROM entries WHERE feed_id=?", (fid,)).fetchone()[0]
+    assert (count(1), count(2)) == (2, 1)
