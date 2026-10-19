@@ -24,10 +24,12 @@
   --line-2: #cecacd;    /* highlight-high */
   --hover: #f4ede8;     /* highlight-low */
   --sel: #f2e9e1;
-  --accent: #82699e;    /* iris */
+  --accent: #785f94;    /* iris, the text-sized Dawn step */
   --accent-ink: #fffaf3;
-  --unread: #82699e;
+  --unread: #785f94;
   --love: #b4637a; --gold: #ea9d34; --rose: #d7827e; --foam: #56949f;
+  /* Text-sized accents (4.5:1) and the headings' corrected gold and rose (3:1), as in the editor snippet's section 1. Dark mode needs none of them. */
+  --iris-p: #907aa9; --love-t: #a44f67; --foam-t: #42717a; --rose-h: #d06b67; --gold-h: #c07714; --pine-h: #286983;
   --code-bg: #f2e9e1; --code-inline: #dfdad9;
   --sab: env(safe-area-inset-bottom, 0px); --sat: env(safe-area-inset-top, 0px);
   --font-ui: "Source Sans 3", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
@@ -40,6 +42,7 @@
     --line: #403d52; --line-2: #524f67; --hover: #21202e; --sel: #26233a;
     --accent: #c4a7e7; --accent-ink: #191724; --unread: #c4a7e7;
     --love: #eb6f92; --gold: #f6c177; --rose: #ebbcba; --foam: #9ccfd8;
+    --iris-p: #c4a7e7; --love-t: #eb6f92; --foam-t: #9ccfd8; --rose-h: #ebbcba; --gold-h: #f6c177; --pine-h: #3e8fb0;
     --code-bg: #1f1d2e; --code-inline: #26233a;
   }
 }
@@ -139,20 +142,28 @@ body:has(#app[data-focus="1"]) #toast { bottom: auto; top: calc(64px + var(--sat
 .yt-embed { aspect-ratio: 16 / 9; margin: 0 0 1.2em; break-inside: avoid; }
 .yt-embed iframe { width: 100%; height: 100%; border: 0; border-radius: 6px; }
 .prose figcaption { color: var(--muted); font-size: .75em; }
-.prose a { color: var(--foam); text-decoration: none; }
+.prose a { color: var(--accent); text-decoration: none; }
+.prose a[target="_blank"] { color: var(--foam-t); }
 .prose a:hover { text-decoration: underline; }
-.prose blockquote { margin: 1em 0; padding-left: 1em; border-left: 3px solid var(--line-2); color: var(--muted); }
-.prose strong { color: var(--gold); }
+.prose blockquote { margin: 1em 0; padding: .1em 0 .1em 1em; border-left: 2px solid var(--rose); background: color-mix(in srgb, var(--rose) 6%, transparent); color: var(--muted); }
+.prose strong { color: var(--love-t); background-image: linear-gradient(62deg, var(--love-t) 0%, var(--accent) 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.prose strong code, .prose code strong { -webkit-text-fill-color: var(--love-t); color: var(--love-t); }
 .prose pre { overflow-x: auto; background: var(--code-bg); padding: 12px; border-radius: 8px; font-size: .7em; line-height: 1.5; }
 .prose code { font: .8em var(--font-code); background: var(--code-inline); padding: .1em .3em; border-radius: 4px; }
 .prose pre code { background: none; padding: 0; }
 .prose table { border-collapse: collapse; display: block; overflow-x: auto; }
 .prose td, .prose th { border: 1px solid var(--line); padding: 4px 8px; }
+.prose th { background: var(--hover); color: var(--muted); }
+.prose tbody tr:nth-child(even) { background: color-mix(in srgb, var(--hover) 60%, transparent); }
 .prose h1, .prose h2, .prose h3, .prose h4 { font-family: var(--font-read); line-height: 1.25; }
-.prose h1 { color: var(--love); }
-.prose h2 { color: var(--accent); }
-.prose h3 { color: var(--rose); }
-.prose h4 { color: var(--foam); }
+.prose h1 { color: var(--love); padding-bottom: .18em; background: linear-gradient(90deg, color-mix(in srgb, var(--love) 60%, transparent), transparent 70%) no-repeat 0 100% / 100% 2px; }
+.prose h2 { color: var(--iris-p); }
+.prose h3 { color: var(--rose-h); }
+.prose h4 { color: var(--gold-h); }
+.prose h5 { color: var(--foam); }
+.prose h6 { color: var(--pine-h); }
+.prose h5, .prose h6 { font-family: var(--font-read); line-height: 1.25; }
+.prose hr { border: 0; height: 4px; margin: 2.5em auto; background-image: linear-gradient(90deg, transparent, var(--gold), var(--love), var(--rose), var(--iris-p), var(--foam), transparent); } /* the palette swept across the rule, as the snippet's section break */
 
 dialog { border: 1px solid var(--line); border-radius: 14px; background: var(--raised); color: var(--ink); padding: 18px; width: min(460px, calc(100vw - 24px)); }
 dialog::backdrop { background: rgba(25,23,36,.55); }
