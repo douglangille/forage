@@ -105,9 +105,9 @@ def parse_pick(text: str, folders: list[str]) -> str | None:
 async def propose(key: str, model: str, feeds: list[dict], ua: str, allow_training: bool = False, fallback: str = "",
                   vocab: list[str] | tuple[str, ...] = ()) -> tuple[dict[int, str], str]:
     ids = {f["id"] for f in feeds}
-    system = SYSTEM + (
-        "Name each folder from this standard list, spelled exactly as written, whenever one fits; invent a name only when none does: "
-        + json.dumps(list(vocab), ensure_ascii=False) + ". " if vocab else "")
+    note = ("Name each folder from this standard list, spelled exactly as written, whenever one fits; invent a name only when none does: "
+            + json.dumps(list(vocab), ensure_ascii=False) + ". ") if vocab else ""
+    system = SYSTEM.replace(UNTRUSTED, note + UNTRUSTED, 1)  # before the reply-format line, which should stay last
     return await summarize.complete(
         key, model, system, "id | name | site | recent posts\n" + feed_lines(feeds), ua,
         lambda t: parse_folders(t, ids), allow_training, max_tokens=6000, attempts=4, timeout=60, fallback=fallback)
