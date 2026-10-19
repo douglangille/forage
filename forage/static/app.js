@@ -664,6 +664,7 @@ $("#btn-editfeed").onclick = () => {
   u.textContent = f.error ? `${f.url}\nLast fetch failed: ${f.error}` : f.url; u.style.whiteSpace = "pre-line";
   $("#feed-msg").textContent = "";
   $("#feed-suggest").hidden = !S.ai;
+  if (!S.ai) loadAi().then(() => { $("#feed-suggest").hidden = !S.ai; });  // in case the first check hadn't answered yet
   $("#dlg-feed").showModal();
 };
 $("#feed-folder").addEventListener("change", (e) => { const n = $("#feed-folder-new"); n.hidden = e.target.value !== "__new__"; if (!n.hidden) n.focus(); });
@@ -991,6 +992,7 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catc
 setSaveBtn();
 
 (async function init() {
+  loadAi();  // whether AI is on: the edit dialog's Suggest button and Find's Let AI pick depend on it, not only Manage
   await loadFeeds();
   await loadEntries();
 })();
