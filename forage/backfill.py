@@ -227,7 +227,60 @@ async def _sitemap(http, feed, first, seen, limit, progress):
     return out
 
 
-METHODS = (("archived feed pages", _archive_links), ("Substack archive", _substack),
+def _yt_source(feed_url: str) -> str:
+    """The channel's Videos tab (no Shorts) or the playlist a YouTube feed URL names, or "" for any other feed."""
+    p = urlsplit(feed_url)
+    if p.netloc.lower().removeprefix("www.") != "youtube.com" or not p.path.startswith("/feeds/videos.xml"):
+        return ""
+    q = dict(parse_qsl(p.query))
+    if q.get("channel_id"):
+        return f"https://www.youtube.com/channel/{q['channel_id']}/videos"
+    return f"https://www.youtube.com/playlist?list={q['playlist_id']}" if q.get("playlist_id") else ""
+
+
+def _yt_list(source: str, count: int) -> list[dict]:
+    import yt_dlp
+    with yt_dlp.YoutubeDL({"quiet": True, "no_warnings": True, "extract_flat": True, "playlistend": count, "skip_download": True}) as y:
+        return [e for e in (y.extract_info(source, download=False) or {}).get("entries", []) if e and e.get("id")]
+
+
+def _yt_detail(vid: str) -> dict | None:
+    import yt_dlp
+    with yt_dlp.YoutubeDL({"quiet": True, "no_warnings": True, "skip_download": True}) as y:
+        i = y.extract_info(f"https://www.youtube.com/watch?v={vid}", download=False, process=False)
+    return i if i and i.get("timestamp") else None  # no timestamp: a premiere or live stream not yet out
+
+
+async def _youtube(http, feed, first, seen, limit, progress):
+    """YouTube's feed holds only the latest 15. yt-dlp lists the channel's Videos tab, then one request per video for its
+    exact date and description (about 1.5 s each)."""
+    source = _yt_source(feed["url"])
+    if not source:
+        return []
+    have = {g for g in seen if g.startswith("yt:video:")}
+    out = []
+    for e in await asyncio.to_thread(_yt_list, source, len(have) + limit + 20):
+        if len(out) >= limit:
+            break
+        guid = f"yt:video:{e['id']}"
+        if guid in have:
+            continue
+        progress["checked"] += 1
+        try:
+            d = await asyncio.to_thread(_yt_detail, e["id"])
+        except Exception:
+            continue
+        await asyncio.sleep(0.5)
+        if not d:
+            continue
+        out.append({"id": guid, "yt_videoid": e["id"], "link": f"https://www.youtube.com/watch?v={e['id']}", "title": d.get("title") or e.get("title") or "",
+                    "author": d.get("channel") or d.get("uploader") or "", "summary": d.get("description") or "",
+                    "published_parsed": datetime.fromtimestamp(d["timestamp"], timezone.utc).timetuple(),
+                    "media_thumbnail": [{"url": f"https://i.ytimg.com/vi/{e['id']}/hqdefault.jpg"}]})
+    return out
+
+
+METHODS = (("YouTube channel", _youtube), ("archived feed pages", _archive_links), ("Substack archive", _substack),
            ("paged feed", _paged), ("sitemap", _sitemap))
 
 

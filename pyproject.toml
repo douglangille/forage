@@ -17,6 +17,7 @@ dependencies = [
   "nh3",
   "pillow",
   "youtube-transcript-api",
+  "yt-dlp",
 ]
 
 [project.optional-dependencies]
