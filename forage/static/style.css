@@ -135,7 +135,7 @@ body:has(#app[data-focus="1"]) #toast { bottom: auto; top: calc(64px + var(--sat
   #app[data-focus="1"] #side, #app[data-focus="1"] #list-pane { display: none; }
 }
 .meta { color: var(--muted); font-size: 13px; margin: 0 0 6px; }
-#art-title { font: 700 1.5em/1.2 var(--font-read); margin: 0 0 20px; color: var(--love); }
+#art-title { font: 700 1.5em/1.2 var(--font-read); margin: 0 0 20px; padding-bottom: .18em; color: var(--love); background: linear-gradient(90deg, color-mix(in srgb, var(--love) 60%, transparent), transparent 70%) no-repeat 0 100% / 100% 2px; } /* the article's own title is the page's H1; the fade is the snippet's */
 .prose { font: 1em/1.65 var(--font-read); overflow-wrap: anywhere; }
 .prose img { max-width: 100%; height: auto; border-radius: 6px; }
 .prose figure { margin: 1.2em 0; }
