@@ -429,11 +429,11 @@ def test_organize_flow(tmp_path, monkeypatch):
     from forage import feeds, organize
     seen = []
 
-    async def fake_propose(key, model, fds, ua, allow_training=False, fallback="", vocab=()):
+    async def fake_propose(key, model, fds, ua, allow_training=False, fallback="", vocab=(), about=None):
         seen.append(fds)
         return {f["id"]: "Tech" for f in fds}, "m"
 
-    async def fake_pick(key, model, feed, folders, ua, allow_training=False, fallback="", vocab=(), members=None):
+    async def fake_pick(key, model, feed, folders, ua, allow_training=False, fallback="", vocab=(), members=None, about=None):
         return "Tech"
 
     async def fake_discover(http, url): return url
@@ -616,13 +616,19 @@ def test_folder_vocabulary(tmp_path, monkeypatch):
     got = asyncio.run(organize.pick("k", "m", {"id": 1, "title": "The Conversation", "site_url": "https://theconversation.com", "titles": ["a"]},
                                     ["Tech"], "ua", vocab=["News", "Tech"], members={"Tech": ["Ars", "Verge"]}))
     assert got == "News"
-    assert "- Tech (e.g. Ars; Verge)" in seen["user"] and '"News"' in seen["user"].split("Also available:")[1] and '"Tech"' not in seen["user"].split("Also available:")[1]
+    # an "about" line travels with its folder, and the shipped list has the boundaries that matter
+    items = dict(organize.load_vocab_items())
+    assert "Canadian News" not in items and {"Creative Writing", "Writing Craft", "Humor", "Note Taking", "AI", "Productivity"} <= set(items)
+    assert items["Humor"] and items["AI"] and items["Productivity"]
+    asyncio.run(organize.pick("k", "m", {"id": 1, "title": "T", "site_url": "", "titles": []}, [], "ua", vocab=["News"], about={"News": "Reporting."}))
+    assert "- News: Reporting." in seen["user"]
+    assert "- Tech (e.g. Ars; Verge)" in seen["user"] and "- News" in seen["user"].split("Also available:")[1] and "- Tech" not in seen["user"].split("Also available:")[1]
 
 
 def test_suggest_folder_works_with_no_folders_yet_and_lists_the_standard_ones(tmp_path, monkeypatch):
     import dataclasses
     from forage import feeds, organize
-    async def fake_pick(key, model, feed, folders, ua, allow_training=False, fallback="", vocab=(), members=None):
+    async def fake_pick(key, model, feed, folders, ua, allow_training=False, fallback="", vocab=(), members=None, about=None):
         assert folders == [] and "News" in vocab
         return "News"
     async def fake_discover(http, url): return url

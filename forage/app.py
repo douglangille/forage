@@ -159,7 +159,9 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             out.append({"id": f["id"], "title": f["title"], "site_url": f["site_url"], "titles": titles})
         return out
 
-    vocab = organize.load_vocab()
+    vocab_items = organize.load_vocab_items()
+    vocab = [n for n, _ in vocab_items]
+    vocab_about = {n: a for n, a in vocab_items if a}
 
     def folders_in_use() -> tuple[list[str], dict[str, list[str]]]:
         """Folder names that hold feeds, and up to three feed names in each, so the model knows what a folder means."""
@@ -177,7 +179,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             return
         try:
             folder = await organize.pick(cfg.summary_key, organize_model(), feed[0], folders, cfg.user_agent, cfg.summary_allow_training,
-                                         cfg.summary_fallback_model, vocab=vocab, members=members)
+                                         cfg.summary_fallback_model, vocab=vocab, members=members, about=vocab_about)
         except RuntimeError:
             return
         conn.execute("UPDATE feeds SET folder=? WHERE id=?", (folder, fid))
@@ -198,7 +200,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             raise HTTPException(429, f"Today's limit of {cfg.summary_daily_cap} AI calls is used up.")
         try:
             folder = await organize.pick(cfg.summary_key, organize_model(), feed[0], folders, cfg.user_agent, cfg.summary_allow_training,
-                                         cfg.summary_fallback_model, vocab=vocab, members=members)
+                                         cfg.summary_fallback_model, vocab=vocab, members=members, about=vocab_about)
         except RuntimeError as exc:
             raise HTTPException(502, str(exc))
         return {"folder": folder}
@@ -310,7 +312,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         if not _summary_budget():
             raise HTTPException(429, f"Today's limit of {cfg.summary_daily_cap} AI calls is used up.")
         try:
-            assign, model = await organize.propose(cfg.summary_key, organize_model(), inputs, cfg.user_agent, cfg.summary_allow_training, cfg.summary_fallback_model, vocab=vocab)
+            assign, model = await organize.propose(cfg.summary_key, organize_model(), inputs, cfg.user_agent, cfg.summary_allow_training, cfg.summary_fallback_model, vocab=vocab, about=vocab_about)
         except RuntimeError as exc:
             raise HTTPException(502, str(exc))
         names = {f["id"]: f["title"] or f["url"] for f in conn.execute("SELECT id, title, url FROM feeds")}

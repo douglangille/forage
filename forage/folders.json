@@ -1,47 +1,153 @@
 [
- "News",
- "World News",
- "Canadian News",
- "Politics",
- "Society & Culture",
- "History",
- "Law",
- "Business",
- "Strategy & Leadership",
- "Marketing",
- "Finance & Investing",
- "Careers & Work",
- "Technology",
- "AI",
- "Programming",
- "Security & Privacy",
- "Open Source & Self-Hosting",
- "Design & UX",
- "Education",
- "EdTech & Higher Ed",
- "Science",
- "Philosophy",
- "Psychology",
- "Personal Development",
- "Productivity",
- "Note Taking",
- "Writing",
- "Books & Literature",
- "Art & Photography",
- "Music",
- "Film & TV",
- "Humor",
- "Gaming",
- "Health & Fitness",
- "Food & Cooking",
- "Gardening",
- "Farming & Homesteading",
- "Pets & Animals",
- "DIY & Home",
- "Environment",
- "Travel",
- "Sports",
- "Parenting",
- "Faith & Spirituality",
- "YouTube"
+ {
+  "name": "News",
+  "about": "Reporting and current affairs from any outlet, Canadian or not. Not comedy about the news."
+ },
+ {
+  "name": "Politics",
+  "about": "Political analysis and commentary."
+ },
+ {
+  "name": "Society & Culture",
+  "about": "Essays on culture, media, and how society works."
+ },
+ {
+  "name": "History",
+  "about": "History writing and historical context."
+ },
+ {
+  "name": "Law"
+ },
+ {
+  "name": "Business",
+  "about": "Companies, markets and industry coverage."
+ },
+ {
+  "name": "Strategy & Leadership",
+  "about": "Strategy, complexity, management and leadership thinking."
+ },
+ {
+  "name": "Marketing"
+ },
+ {
+  "name": "Finance & Investing"
+ },
+ {
+  "name": "Careers & Work"
+ },
+ {
+  "name": "Technology",
+  "about": "Tech industry, products and analysis in general, not specifically AI."
+ },
+ {
+  "name": "AI",
+  "about": "AI itself: models, labs, research, commentary, and how to use AI tools. If AI is the subject, it goes here even when the use is productivity."
+ },
+ {
+  "name": "Programming"
+ },
+ {
+  "name": "Security & Privacy"
+ },
+ {
+  "name": "Open Source & Self-Hosting"
+ },
+ {
+  "name": "Design & UX"
+ },
+ {
+  "name": "Education",
+  "about": "Teaching, learning science and education policy."
+ },
+ {
+  "name": "EdTech & Higher Ed",
+  "about": "Colleges, universities and learning technology."
+ },
+ {
+  "name": "Science"
+ },
+ {
+  "name": "Philosophy",
+  "about": "Philosophical ideas and reflective essays on ethics and meaning, in a scholarly or literary vein."
+ },
+ {
+  "name": "Psychology"
+ },
+ {
+  "name": "Personal Development",
+  "about": "Self-improvement and life advice: habits, mindset, relationships, finding meaning in a practical, popular style."
+ },
+ {
+  "name": "Productivity",
+  "about": "Working methods: time and task management, focus, habits of effective work. If AI is only incidental to the method, it goes here."
+ },
+ {
+  "name": "Note Taking",
+  "about": "Personal knowledge management: note systems, linking, second brain, Zettelkasten."
+ },
+ {
+  "name": "Creative Writing",
+  "about": "Fiction, flash fiction and stories, including a writer's own fiction site."
+ },
+ {
+  "name": "Writing Craft",
+  "about": "How to write: process, editing, publishing, blogging and writing advice."
+ },
+ {
+  "name": "Books & Literature",
+  "about": "Book reviews and literary criticism."
+ },
+ {
+  "name": "Art & Photography"
+ },
+ {
+  "name": "Music"
+ },
+ {
+  "name": "Film & TV"
+ },
+ {
+  "name": "Humor",
+  "about": "Comedy, satire, parody and mock-documentary, including video series played for laughs."
+ },
+ {
+  "name": "Gaming"
+ },
+ {
+  "name": "Health & Fitness"
+ },
+ {
+  "name": "Food & Cooking"
+ },
+ {
+  "name": "Gardening"
+ },
+ {
+  "name": "Farming & Homesteading"
+ },
+ {
+  "name": "Pets & Animals"
+ },
+ {
+  "name": "DIY & Home"
+ },
+ {
+  "name": "Environment"
+ },
+ {
+  "name": "Travel"
+ },
+ {
+  "name": "Sports"
+ },
+ {
+  "name": "Parenting"
+ },
+ {
+  "name": "Faith & Spirituality"
+ },
+ {
+  "name": "YouTube",
+  "about": "Only for a video channel that fits no subject folder."
+ }
 ]
