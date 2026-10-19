@@ -436,7 +436,8 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             pics = [r for r in rows if r["image"]]
             async with feeds.client(cfg) as http:
                 tasks = {r["id"]: asyncio.ensure_future(thumbs.card_ratio(http, cfg.data_dir / "thumbs", r["image"])) for r in pics}
-                await asyncio.wait(tasks.values(), timeout=10)  # slow ones go on building for the next load
+                if tasks:  # asyncio.wait refuses an empty set: an empty list, or one with no pictures, has none
+                    await asyncio.wait(tasks.values(), timeout=10)  # slow ones go on building for the next load
                 for r in pics:
                     t = tasks[r["id"]]
                     ratio = t.result() if t.done() and not t.cancelled() and not t.exception() else None

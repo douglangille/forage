@@ -571,3 +571,19 @@ def test_under_prefix(cfg):
         assert c.get("/forage/sw.js").status_code == 200
         assert c.get("/").status_code == 404
         assert c.get("/api/feeds").status_code == 404
+
+
+def test_cards_param_with_no_rows_or_no_pictures_is_an_empty_list_not_an_error(tmp_path, monkeypatch):
+    from forage import feeds
+    async def fake_discover(http, url): return url
+    async def fake_get(self, url, **kw):
+        import httpx
+        return httpx.Response(200, content=RSS, request=httpx.Request("GET", url))
+    monkeypatch.setattr(feeds, "discover", fake_discover)
+    monkeypatch.setattr("httpx.AsyncClient.get", fake_get)
+    with TestClient(create_app(cfg(tmp_path))) as c:
+        c.post("/api/feeds", json={"url": "https://ex.test/feed"})
+        assert c.get("/api/entries?cards=true&q=zzznomatchzzz").json() == []  # asyncio.wait raised on the empty task set
+        assert c.post("/api/mark-read", json={}).status_code == 200
+        r = c.get("/api/entries?cards=true&unread=true")  # everything read, unread filter on: the case that broke grid view
+        assert r.status_code == 200 and r.json() == []
