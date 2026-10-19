@@ -663,9 +663,22 @@ $("#btn-editfeed").onclick = () => {
   const u = $("#feed-url"); u.classList.toggle("bad", !!f.error);
   u.textContent = f.error ? `${f.url}\nLast fetch failed: ${f.error}` : f.url; u.style.whiteSpace = "pre-line";
   $("#feed-msg").textContent = "";
+  $("#feed-suggest").hidden = !S.ai;
   $("#dlg-feed").showModal();
 };
 $("#feed-folder").addEventListener("change", (e) => { const n = $("#feed-folder-new"); n.hidden = e.target.value !== "__new__"; if (!n.hidden) n.focus(); });
+$("#feed-suggest").onclick = async () => {
+  const f = currentFeed(); if (!f) return;
+  const b = $("#feed-suggest"), msg = $("#feed-msg");
+  b.disabled = true; msg.classList.remove("bad"); msg.textContent = "Asking…";
+  try {
+    const { folder } = await api("/feeds/" + f.id + "/suggest-folder", { method: "POST" });
+    const sel = $("#feed-folder");
+    if (folder && [...sel.options].some((o) => o.value === folder)) { sel.value = folder; $("#feed-folder-new").hidden = true; msg.textContent = `Suggested: ${folder}. Save to apply it.`; }
+    else msg.textContent = "No existing folder fits this one.";
+  } catch (e) { msg.textContent = e.message; }
+  b.disabled = false;
+};
 $("#feed-cancel").onclick = () => $("#dlg-feed").close();
 $("#form-feed").addEventListener("submit", async (ev) => {
   ev.preventDefault();

@@ -447,6 +447,7 @@ def test_organize_flow(tmp_path, monkeypatch):
 
     with TestClient(create_app(cfg(tmp_path))) as c:
         assert c.post("/api/folders/organize").status_code == 404  # no key, no feature
+        assert c.post("/api/feeds/1/suggest-folder").status_code == 404
     with TestClient(create_app(dataclasses.replace(cfg(tmp_path), summary_key="k"))) as c:
         a = c.post("/api/feeds", json={"url": "https://a.test/feed", "folder": "Old"}).json()
         assert c.post("/api/folders/organize").status_code == 422  # one feed isn't worth sorting
@@ -464,6 +465,10 @@ def test_organize_flow(tmp_path, monkeypatch):
         assert c.post("/api/folders/undo").status_code == 404  # one undo, then it's gone
         n = c.post("/api/feeds", json={"url": "https://c.test/feed", "suggest": True}).json()
         assert n["folder"] == "Tech"  # filed by the (faked) model
+        # the edit dialog's version: an existing feed gets a suggestion and nothing is saved
+        assert c.post(f"/api/feeds/{b['id']}/suggest-folder").json() == {"folder": "Tech"}
+        assert next(f for f in c.get("/api/feeds").json() if f["id"] == b["id"])["folder"] == ""  # still where it was
+        assert c.post("/api/feeds/9999/suggest-folder").status_code == 404
 
 
 def test_feed_list_carries_last_post(tmp_path, monkeypatch):

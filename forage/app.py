@@ -172,6 +172,25 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         conn.execute("UPDATE feeds SET folder=? WHERE id=?", (folder, fid))
         conn.commit()
 
+    @app.post("/api/feeds/{fid}/suggest-folder")
+    async def suggest_folder_for(fid: int):
+        """The existing folder the model would file this feed in ("" if none fits). Changes nothing: the edit dialog shows it and Save applies it."""
+        if not cfg.summary_key:
+            raise HTTPException(404, "AI isn't set up on this server.")
+        feed = feed_inputs("WHERE id=?", (fid,))
+        if not feed:
+            raise HTTPException(404, "no such feed")
+        folders = sorted({r["folder"] for r in conn.execute("SELECT folder FROM feeds WHERE folder!=''")})
+        if not folders:
+            raise HTTPException(422, "There are no folders yet. Make one, or use Organize with AI in Manage.")
+        if not _summary_budget():
+            raise HTTPException(429, f"Today's limit of {cfg.summary_daily_cap} AI calls is used up.")
+        try:
+            folder = await organize.pick(cfg.summary_key, organize_model(), feed[0], folders, cfg.user_agent, cfg.summary_allow_training, cfg.summary_fallback_model)
+        except RuntimeError as exc:
+            raise HTTPException(502, str(exc))
+        return {"folder": folder}
+
     def settings_view() -> dict:
         inbox = inbox_dir()
         root = git_root()
