@@ -11,7 +11,7 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 
 const S = {
   ai: false, undo: false, feeds: [], entries: [], sel: null, cur: null, loadingMore: false, done: false,
-  scope: { type: "today" },         // today | all | starred | folder | feed
+  scope: { type: "all" },           // all | starred | folder | feed
   unreadOnly: true, q: "",
   get narrow() { return matchMedia("(max-width: 899px)").matches; },
 };
@@ -242,7 +242,7 @@ function renderNav() {
     + `<div class="row" role="button" tabindex="0" data-scope='${esc(JSON.stringify(sc))}'${fold != null ? ` aria-expanded="${open}"` : ""}>`
     + `<span class="caret"${fold != null ? ` data-fold="${esc(fold)}"` : ""}></span><span class="ico ${ico}"></span><span class="name">${esc(label)}</span>${n ? `<span class="badge">${n}</span>` : ""}</div>`;
   const feedRow = (f) => row({ type: "feed", id: f.id }, "feed", f.title || f.url, f.unread, { err: !!f.error }) + "</li>";
-  let h = row({ type: "today" }, "clock", "Recent", 0, { li: "file pin" }) + "</li>" + row({ type: "all" }, "feed", "All items", total, { li: "file pin" }) + "</li>" + row({ type: "starred" }, "star", "Starred", 0, { li: "file pin" }) + "</li>";
+  let h = row({ type: "all" }, "feed", "All items", total, { li: "file pin" }) + "</li>" + row({ type: "starred" }, "star", "Starred", 0, { li: "file pin" }) + "</li>";
   const names = Object.keys(folders).sort((a, b) => (!a - !b) || a.localeCompare(b));  // folders by name, unfiled last
   for (const name of names) {
     const feeds = folders[name];
@@ -262,7 +262,6 @@ async function loadFeeds() { S.feeds = await api("/feeds"); renderNav(); }
 
 function scopeTitle() {
   const sc = S.scope;
-  if (sc.type === "today") return "Recent";
   if (sc.type === "starred") return "Starred";
   if (sc.type === "folder") return sc.name;
   if (sc.type === "feed") return S.feeds.find((f) => f.id === sc.id)?.title || "Feed";
@@ -275,7 +274,6 @@ function query(before) {
   const sc = S.scope;
   if (sc.type === "feed") p.set("feed", sc.id);
   if (sc.type === "folder") p.set("folder", sc.name);
-  if (sc.type === "today") p.set("since_hours", String(RECENT_HOURS));
   if (cardsOn()) p.set("cards", "true");
   if (sc.type === "starred") p.set("starred", "true");
   else if (S.unreadOnly) p.set("unread", "true");
@@ -291,7 +289,6 @@ S.cards = true;
 try { S.cards = localStorage.getItem("forage.cards") !== "0"; } catch {}
 const cardsOn = () => S.cards && !phoneMQ.matches;
 phoneMQ.addEventListener("change", () => loadEntries());
-const RECENT_HOURS = 48;  // the Recent view (scope type "today" in the code, its first name)
 let loadTok = 0;
 async function loadEntries(append = false) {
   if (append && S.loadingMore) return;
@@ -317,7 +314,7 @@ function renderList(append) {
   $("#app").dataset.cards = cardsOn() ? "1" : "";
   $("#btn-view").classList.toggle("on", S.cards);
   $("#btn-view").title = S.cards ? "Showing cards. Switch to the plain list (v)" : "Showing the plain list. Switch to cards (v)";
-  $("#list-title").textContent = scopeTitle() + (S.scope.type === "today" && S.entries.length ? ` · ${S.entries.length}${S.done ? "" : "+"}` : "");
+  $("#list-title").textContent = scopeTitle();
   $("#btn-filter").classList.toggle("on", S.unreadOnly);
   $("#btn-filter").hidden = S.scope.type === "starred";
   $("#btn-editfeed").hidden = S.scope.type !== "feed";
@@ -980,7 +977,6 @@ $("#btn-markall").onclick = async () => {
   const body = {};
   if (sc.type === "feed") body.feed = sc.id;
   if (sc.type === "folder") body.folder = sc.name;
-  if (sc.type === "today") body.since_hours = RECENT_HOURS;
   const newest = S.entries[0]?.published;
   if (newest) body.older_than = newest;
   try {
@@ -994,7 +990,7 @@ $("#q").addEventListener("input", (e) => { clearTimeout(qTimer); qTimer = setTim
 
 $("#q").addEventListener("keydown", (e) => { if (e.key === "Enter" && narrowMQ.matches) { e.preventDefault(); e.target.blur(); setMenu(false); } }); // the drawer covers the list the search filters
 function openFind() { setMenu(false); $("#add-folder").innerHTML = folderOptions("") + (S.ai ? `<option value="__ai__">Let AI pick</option>` : ""); $("#add-folder-new").hidden = true; $("#add-folder-new").value = ""; $("#add-msg").textContent = ""; $("#results").innerHTML = ""; $("#dlg-add").showModal(); $("#add-url").focus(); }
-$("#btn-home").onclick = () => setScope({ type: "today" });
+$("#btn-home").onclick = () => setScope({ type: "all" });
 $("#btn-side-more").onclick = (e) => menu(e.currentTarget, [
   { label: "Refresh all", run: refreshAll },
   { label: "Find feeds\u2026", run: openFind },
@@ -1132,7 +1128,7 @@ $("#org-apply").onclick = async () => {
   if (!proposal) return;
   try {
     const r = await api("/folders/apply", { method: "POST", body: { assign: proposal.assign } });
-    S.scope = { type: "today" };
+    S.scope = { type: "all" };
     await loadFeeds(); await loadEntries(); renderManage();
     toast(`${r.moved} feeds moved. Undo is in Manage.`);
     $("#dlg-organize").close(); $("#dlg-manage").showModal(); loadAi();
