@@ -228,7 +228,7 @@ function renderNav() {
     + `<div class="row" role="button" tabindex="0" data-scope='${esc(JSON.stringify(sc))}'${fold != null ? ` aria-expanded="${open}"` : ""}>`
     + `<span class="caret"${fold != null ? ` data-fold="${esc(fold)}"` : ""}></span><span class="ico ${ico}"></span><span class="name">${esc(label)}</span>${n ? `<span class="badge">${n}</span>` : ""}</div>`;
   const feedRow = (f) => row({ type: "feed", id: f.id }, "feed", f.title || f.url, f.unread, { err: !!f.error }) + "</li>";
-  let h = row({ type: "today" }, "clock", "Recent", 0) + "</li>" + row({ type: "all" }, "feed", "All items", total) + "</li>" + row({ type: "starred" }, "star", "Starred", 0) + "</li>";
+  let h = row({ type: "today" }, "clock", "Recent", 0, { li: "file pin" }) + "</li>" + row({ type: "all" }, "feed", "All items", total, { li: "file pin" }) + "</li>" + row({ type: "starred" }, "star", "Starred", 0, { li: "file pin" }) + "</li>";
   const names = Object.keys(folders).sort((a, b) => (!a - !b) || a.localeCompare(b));  // folders by name, unfiled last
   for (const name of names) {
     const feeds = folders[name];
