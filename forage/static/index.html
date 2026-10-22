@@ -33,11 +33,9 @@
     <header class="pane-head">
       <button id="btn-tree" class="icon" title="Show the sidebar" aria-label="Show the sidebar"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg></button>
       <h2 id="list-title">All items</h2>
-      <button id="btn-editfeed" class="icon" title="Edit this feed" aria-label="Edit this feed" data-icon="pencil" hidden></button>
       <div class="spacer"></div>
       <button id="btn-view" class="icon" aria-label="Switch between cards and list" data-icon="dashboard"></button>
-      <button id="btn-filter" class="chip" title="Toggle unread only (u)">Unread</button>
-      <button id="btn-markall" class="icon" title="Mark all read" aria-label="Mark all read" data-icon="check-all"></button>
+      <button id="btn-list-more" class="icon" title="More" aria-label="More"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg></button>
     </header>
     <ul id="entries"></ul>
     <div id="list-empty" hidden>Nothing here. Go outside.</div>
@@ -49,15 +47,10 @@
       <header class="art-head">
         <button id="btn-back" class="icon only-narrow" aria-label="Back" data-icon="chevron-left"></button>
         <div class="spacer"></div>
-        <button id="btn-focus" class="icon" aria-pressed="false" title="Focus mode: paged columns (z)" aria-label="Focus mode" data-icon="maximize"></button>
         <button id="btn-prev" class="icon" title="Previous (k)" aria-label="Previous" data-icon="chevron-up"></button>
         <button id="btn-next" class="icon" title="Next (j)" aria-label="Next" data-icon="chevron-down"></button>
-        <button id="btn-summary" class="icon" title="Summarize this article" aria-label="Summarize this article" data-icon="list" hidden></button>
+        <button id="btn-save" class="icon save-btn" title="Save to the Obsidian inbox (s)" aria-label="Save to the Obsidian inbox"></button>
         <button id="btn-star" class="icon" title="Star (f)" aria-label="Star" data-icon="star"></button>
-        <button id="btn-unread" class="icon" title="Mark unread (m)" aria-label="Mark unread" data-icon="mail-open"></button>
-        <a id="btn-open" class="icon" target="_blank" rel="noopener" title="Open original (o)" aria-label="Open original" data-icon="external"></a>
-        <button id="btn-share" class="icon" title="Share this article" aria-label="Share this article" data-icon="share"></button>
-        <button id="btn-save" class="icon save-btn" title="Save a clip to the Obsidian inbox (s)" aria-label="Save a clip to Obsidian"></button>
         <button id="btn-art-more" class="icon" title="More" aria-label="More"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg></button>
       </header>
       <div class="art-scroll" id="art-scroll">

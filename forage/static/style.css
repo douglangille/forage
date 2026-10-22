@@ -188,7 +188,6 @@ li.none { color: var(--faint); padding: 8px; font-size: 14px; }
 .ai-sum ul { margin: .3em 0 .2em; padding-left: 1.2em; }
 .ai-sum li { margin: .35em 0; }
 .ai-sum .redo { font-size: .8em; color: var(--muted); }
-#btn-summary.busy { opacity: .5; }
 .prose img { max-height: calc(100dvh - 200px); width: auto; max-width: 100%; object-fit: contain; }
 #app[data-focus="1"] .prose img, #app[data-focus="1"] .prose figure, #app[data-focus="1"] .prose blockquote, #app[data-focus="1"] .prose pre { break-inside: avoid; }
 #app[data-focus="1"] .prose pre { max-height: calc(100dvh - 200px); overflow: auto; }
@@ -336,12 +335,6 @@ body:has(#app[data-focus="1"]) #toast { bottom: auto; top: calc(64px + var(--sat
 }
 #art-scroll { overscroll-behavior-x: none; }
 
-#btn-art-more { display: none; }
-/* Phone width: eleven 44px buttons run past a 390px screen. Focus, Summarize, Mark unread, Open and Share move into the More menu. */
-@media (max-width: 520px) {
-  #btn-focus, #btn-summary, #btn-unread, #btn-open, #btn-share { display: none; }
-  #btn-art-more { display: inline-flex; }
-}
 @media (max-width: 599px) { #btn-view { display: none; } }
 .modal-box:focus { outline: none; }
 .modal-box .inline input { margin: 0; }

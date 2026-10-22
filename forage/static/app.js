@@ -20,24 +20,12 @@ try { S.unreadOnly = localStorage.getItem("forage.unreadOnly") !== "0"; } catch 
 // Stroke icons (Lucide shapes), drawn at 24x24 and recoloured by currentColor. Buttons name theirs with data-icon.
 const ICONS = {
   dashboard: "M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z",
-  menu: "M4 6h16M4 12h16M4 18h16",
-  refresh: "M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8M21 3v5h-5",
-  settings: "M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z",
-  pencil: "M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5zM15 5l4 4",
-  "check-all": "M18 6 7 17l-5-5M22 10l-7.5 7.5L13 16",
   "chevron-left": "m15 18-6-6 6-6",
   "chevron-right": "m9 18 6-6-6-6",
   "chevron-up": "m18 15-6-6-6 6",
   "chevron-down": "m6 9 6 6 6-6",
-  maximize: "M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3",
-  minimize: "M8 3v3a2 2 0 0 1-2 2H3M21 8h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3M16 21v-3a2 2 0 0 1 2-2h3",
-  star: "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z",
-  mail: "M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM22 7l-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7",
-  "mail-open": "M21.2 8.4c.5.38.8.97.8 1.6v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V10a2 2 0 0 1 .8-1.6l8-6a2 2 0 0 1 2.4 0zM22 10l-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 10",
-  external: "M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6",
-  list: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01",
-  share: "M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M16 6l-4-4-4 4M12 2v13",
-  save: "M12 17V3M6 11l6 6 6-6M19 21H5",  // down to a line: into the inbox
+  star: "M12 3l2.7 5.6 6.1.8-4.5 4.2 1.1 6-5.4-3-5.4 3 1.1-6L3.2 9.4l6.1-.8z",
+  save: "M4 13l2.5-7h11L20 13v6H4zM4 13h5l1 2h4l1-2h5",  // an inbox tray, as in Vault
 };
 const svg = (name) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[name]}"/></svg>`;
 function setIcon(el, name) { if (el.dataset.icon !== name || !el.firstChild) { el.dataset.icon = name; el.innerHTML = svg(name); } }
@@ -315,9 +303,6 @@ function renderList(append) {
   $("#btn-view").classList.toggle("on", S.cards);
   $("#btn-view").title = S.cards ? "Showing cards. Switch to the plain list (v)" : "Showing the plain list. Switch to cards (v)";
   $("#list-title").textContent = scopeTitle();
-  $("#btn-filter").classList.toggle("on", S.unreadOnly);
-  $("#btn-filter").hidden = S.scope.type === "starred";
-  $("#btn-editfeed").hidden = S.scope.type !== "feed";
   const ul = $("#entries");
   const keepTop = ul.scrollTop;
   if (append && ul.children.length && ul.children.length <= S.entries.length) {
@@ -416,18 +401,13 @@ async function openEntry(id, { fromList = true } = {}) {
     $("#art-title").textContent = a.title;
     $("#art-meta").textContent = [a.feed_title, a.author, new Date(a.published).toLocaleDateString(undefined, { dateStyle: "medium" })].filter(Boolean).join(" · ");
     $("#art-content").innerHTML = a.html;
-    $("#btn-summary").hidden = !a.summary_on;
     renderSummary(a.summary, a.summary_model);
     $("#art-content").querySelectorAll("a").forEach((l) => (l.target = "_blank"));
     requestAnimationFrame(() => {
       layoutPaging();
     });
-    $("#btn-open").hidden = !a.url;
-    $("#btn-share").hidden = !a.url;
-    if (a.url) $("#btn-open").href = a.url;
-    $("#btn-star").classList.toggle("on", !!a.starred);
+    paintStar();
     if (e) { const was = !e.is_read; e.is_read = 1; e.starred = a.starred; patchRow(e); if (was) bump(e.feed_id, -1); }
-    setReadBtn(true);
   } catch (err) {
     $("#art-content").innerHTML = `<p class="meta">Couldn't load this one: ${esc(err.message)}</p>`;
   }
@@ -480,11 +460,11 @@ function renderSummary(text, model, note = "") {
   $("#sum-redo").onclick = () => summarizeNow(true);
 }
 async function summarizeNow(force = false) {
-  const id = S.cur, b = $("#btn-summary");
-  if (!id || b.classList.contains("busy")) return;
+  const id = S.cur;
+  if (!id || S.summarizing) return;
   const box = $("#art-summary");
   if (!force && !box.hidden) { box.querySelector("details").open = !box.querySelector("details").open; return; }  // already there: fold it
-  b.classList.add("busy"); b.title = "Summarizing…";
+  S.summarizing = true;
   if (box.hidden) { box.innerHTML = '<p class="redo">Summarizing…</p>'; box.hidden = false; }
   try {
     const r = await api(`/entries/${id}/summarize`, { method: "POST", body: { force } });
@@ -493,7 +473,7 @@ async function summarizeNow(force = false) {
   } catch (err) {
     if (S.cur === id) { if (S.art?.summary) renderSummary(S.art.summary, S.art.summary_model); else { box.hidden = true; box.innerHTML = ""; } }
     toast(err.message);
-  } finally { b.classList.remove("busy"); b.title = "Summarize this article"; }
+  } finally { S.summarizing = false; }
 }
 
 async function toggleStar() {
@@ -504,15 +484,13 @@ async function toggleStar() {
   S.art.starred = v ? 1 : 0;
   const e = S.entries.find((x) => x.id === S.cur);
   if (e) { e.starred = S.art.starred; }
-  $("#btn-star").classList.toggle("on", v);
+  paintStar();
 }
-
-function setReadBtn(isRead) {
-  const b = $("#btn-unread");
-  setIcon(b, isRead ? "mail-open" : "mail");
-  b.classList.toggle("on", !isRead);
-  b.title = isRead ? "Mark unread (m)" : "Mark read (m)";
-  b.setAttribute("aria-pressed", !isRead);
+function paintStar() {
+  const on = !!S.art?.starred, b = $("#btn-star");
+  b.classList.toggle("on", on);
+  b.title = on ? "Starred (f, tap to unstar)" : "Star (f)";
+  b.setAttribute("aria-pressed", String(on));
 }
 
 async function toggleRead() {
@@ -523,7 +501,7 @@ async function toggleRead() {
   catch (err) { return toast("Couldn't update: " + err.message); }
   e.is_read = nowRead ? 1 : 0;
   if (S.art) S.art.is_read = e.is_read;
-  patchRow(e); bump(e.feed_id, nowRead ? -1 : 1); setReadBtn(nowRead);
+  patchRow(e); bump(e.feed_id, nowRead ? -1 : 1); toast(nowRead ? "Marked read" : "Marked unread");
 }
 
 function step(d) {
@@ -679,9 +657,6 @@ function syncFocus() {
   const onCards = !S.narrow && cardsOn() && $("#app").dataset.tview !== "read";
   const on = S.focus && !$("#article").hidden && !onCards && !S.peek;
   $("#app").dataset.focus = on ? "1" : "";
-  $("#btn-focus").classList.toggle("on", S.focus);
-  $("#btn-focus").setAttribute("aria-pressed", S.focus ? "true" : "false");
-  setIcon($("#btn-focus"), S.focus ? "minimize" : "maximize");
   $("#art-scroll").scrollLeft = 0;
   if (!on) { const b = document.querySelector(".art-body"); b.style.maxWidth = ""; b.style.removeProperty("--cols"); $("#art-scroll").style.clipPath = ""; }
   S.target = null; S.moving = false;
@@ -737,7 +712,6 @@ function setFocus(on) {
   });
   $("#art-content").addEventListener("load", () => requestAnimationFrame(() => layoutPaging()), true);
   new ResizeObserver(() => layoutPaging()).observe(sc);
-  $("#btn-focus").onclick = () => setFocus(!S.focus);
   $("#pg-prev").onclick = () => turn(-1);
   $("#pg-next").onclick = () => turn(1);
 }
@@ -813,7 +787,7 @@ function renderManage() {
 
 /* ---------- edit one feed ---------- */
 function currentFeed() { return S.scope.type === "feed" ? S.feeds.find((f) => f.id === S.scope.id) : null; }
-$("#btn-editfeed").onclick = () => {
+function editFeed() {
   const f = currentFeed(); if (!f) return;
   $("#feed-title").value = f.title || ""; $("#feed-title").placeholder = f.url;
   $("#feed-folder").innerHTML = folderOptions(f.folder);
@@ -825,7 +799,7 @@ $("#btn-editfeed").onclick = () => {
   $("#feed-suggest").hidden = !S.ai;
   if (!S.ai) loadAi().then(() => { $("#feed-suggest").hidden = !S.ai; });  // in case the first check hadn't answered yet
   $("#dlg-feed").showModal();
-};
+}
 $("#feed-folder").addEventListener("change", (e) => { const n = $("#feed-folder-new"); n.hidden = e.target.value !== "__new__"; if (!n.hidden) n.focus(); });
 $("#feed-suggest").onclick = async () => {
   const f = currentFeed(); if (!f) return;
@@ -959,17 +933,14 @@ $("#btn-back").onclick = () => {
 $("#btn-refresh").onclick = refreshAll;
 document.querySelectorAll(".save-btn").forEach((b) => (b.onclick = save));
 $("#btn-star").onclick = toggleStar;
-$("#btn-share").onclick = share;
-$("#btn-summary").onclick = () => summarizeNow(false);
-$("#btn-unread").onclick = toggleRead;
 $("#btn-prev").onclick = () => step(-1);
 $("#btn-next").onclick = () => step(1);
-$("#btn-filter").onclick = () => {
+function toggleUnread() {
   S.unreadOnly = !S.unreadOnly;
   try { localStorage.setItem("forage.unreadOnly", S.unreadOnly ? "1" : "0"); } catch {}
   loadEntries();
-};
-$("#btn-markall").onclick = async () => {
+}
+async function markAllRead() {
   const sc = S.scope;
   if (sc.type === "starred") return toast("Mark all read doesn't apply to Starred");
   if (S.q) return toast("Clear the search first: this marks the whole view, not just the matches");
@@ -984,7 +955,13 @@ $("#btn-markall").onclick = async () => {
     toast(`${r.marked} marked read`);
     await loadFeeds(); await loadEntries();
   } catch (err) { toast("Couldn't mark read: " + err.message); }
-};
+}
+/* The list header keeps the view switch and a More menu, as Vault keeps its list actions in the sidebar's. */
+$("#btn-list-more").onclick = (e) => menu(e.currentTarget, [
+  ...(S.scope.type !== "starred" ? [{ label: "Unread only", on: S.unreadOnly, run: toggleUnread }] : []),
+  { label: "Mark all read\u2026", run: markAllRead },
+  ...(S.scope.type === "feed" ? [{ label: "Edit this feed\u2026", run: editFeed }] : []),
+]);
 let qTimer;
 $("#q").addEventListener("input", (e) => { clearTimeout(qTimer); qTimer = setTimeout(() => { S.q = e.target.value.trim(); loadEntries(); }, 250); });
 
@@ -1014,14 +991,18 @@ $("#btn-tree-side").onclick = () => {
   try { localStorage.setItem("forage.treeOff", "1"); } catch {}
   layoutCards();
 };
-/* Phone width: the article bar keeps Previous, Next, Star and Save, and the rest is behind More. */
+/* An article's actions: Save and Star sit in the bar, as in Vault's pane header, and the rest are in the More menu. */
 $("#btn-art-more").onclick = (e) => {
-  const a = S.art;
+  const a = S.art, read = S.entries.find((x) => x.id === S.cur)?.is_read !== 0;
   menu(e.currentTarget, [
-    { label: "Focus mode", on: !!S.focus, run: () => setFocus(!S.focus) },
+    { label: read ? "Mark unread" : "Mark read", run: toggleRead },
     ...(a?.summary_on ? [{ label: "Summarize", run: () => summarizeNow(false) }] : []),
-    { label: S.entries.find((x) => x.id === S.cur)?.is_read === 0 ? "Mark read" : "Mark unread", run: toggleRead },
-    ...(a?.url ? [{ label: "Open original", run: () => window.open(a.url, "_blank", "noopener") }, { label: "Share\u2026", run: share }] : []),
+    { label: "Focus mode", on: !!S.focus, run: () => setFocus(!S.focus) },
+    ...(a?.url ? [
+      { label: "Share\u2026", run: share },
+      { label: "Open the original", run: () => window.open(a.url, "_blank", "noopener,noreferrer") },
+      { label: "Copy link", run: async () => { try { await navigator.clipboard.writeText(a.url); toast("Link copied"); } catch { toast("Could not copy", true); } } },
+    ] : []),
   ]);
 };
 $("#manage-find").onclick = () => { $("#dlg-manage").close(); openFind(); };
@@ -1167,7 +1148,7 @@ addEventListener("keydown", (e) => {
   else if (k === "j") step(1); else if (k === "k") step(-1);
   else if (k === "s") save(); else if (k === "m") toggleRead();
   else if (k === "o" && S.art?.url) window.open(S.art.url, "_blank", "noopener");
-  else if (k === "r") refreshAll(); else if (k === "u") $("#btn-filter").click();
+  else if (k === "r") refreshAll(); else if (k === "u") toggleUnread();
   else if (k === "f") toggleStar(); else if (k === "/") { e.preventDefault(); $("#btn-tree").click(); $("#q").focus(); }
   else return;
 });
