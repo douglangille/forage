@@ -102,14 +102,14 @@ button.chip.danger, .chip.danger { color: var(--love); }
 .row { display: flex; gap: 7px; padding: 7px 8px; border-radius: 7px; cursor: pointer; min-height: 36px; align-items: center; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .row:hover { background: var(--hover); }
 li.active > .row { background: var(--sel); color: var(--accent); }
-.name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; line-height: 1.3; }
 .caret, .ico { flex: none; width: 14px; height: 14px; background: currentColor; -webkit-mask: var(--m) center / contain no-repeat; mask: var(--m) center / contain no-repeat; }
 .caret { color: var(--faint); transition: transform .12s ease; }
 li.dir > .row > .caret { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 6l6 6-6 6'/%3E%3C/svg%3E"); }
 li.dir.open > .row > .caret { transform: rotate(90deg); }
 li.file > .row > .caret { background: none; }
 /* The folder caret is a touch target of its own: the icon stays 14px, the element around it reaches the row's edges. */
-li.dir > .row > .caret { align-self: stretch; width: 34px; height: auto; margin: -7px -11px -7px -9px; -webkit-mask-size: 14px; mask-size: 14px; }
+li.dir > .row > .caret { align-self: stretch; width: 34px; height: auto; margin: -7px -10px -7px -10px; -webkit-mask-size: 14px; mask-size: 14px; }
 .ico { width: 18px; height: 18px; }
 .ico.folder { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/%3E%3C/svg%3E"); color: var(--accent); }
 .ico.feed { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 5a14 14 0 0 1 14 14M5 11a8 8 0 0 1 8 8'/%3E%3Ccircle cx='6' cy='18' r='1.2'/%3E%3C/svg%3E"); }
