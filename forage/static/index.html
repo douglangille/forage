@@ -17,31 +17,29 @@
 <link rel="stylesheet" href="static/style.css">
 </head>
 <body>
-<div id="app" data-view="list">
+<div id="app" data-view="list" data-drawer="closed">
   <aside id="side">
     <header class="side-head">
-      <h1>Forage</h1>
-      <button id="btn-refresh" class="icon" title="Refresh all (r)" aria-label="Refresh" data-icon="refresh"></button>
-      <button id="btn-settings" class="icon" title="Settings" aria-label="Settings" data-icon="settings"></button>
+      <button id="btn-tree-side" class="icon" title="Hide the sidebar" aria-label="Hide the sidebar"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg></button>
+      <h1><button id="btn-home" type="button" title="Recent" aria-label="Recent">Forage</button></h1>
+      <button id="btn-add" class="icon" title="Find feeds" aria-label="Find feeds"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></button>
+      <button id="btn-side-more" class="icon" title="More" aria-label="More"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg></button>
     </header>
-    <nav id="nav"></nav>
-    <footer class="side-foot">
-      <button id="btn-add" class="linkish">+ Find feeds</button>
-      <button id="btn-manage" class="linkish">Manage</button>
-    </footer>
+    <nav id="nav" aria-label="Feeds"></nav>
+    <footer id="foot"><span id="counts"></span><button id="btn-refresh" class="chip" title="Refresh all (r)" aria-live="polite">Refresh</button></footer>
   </aside>
 
   <section id="list-pane">
     <header class="pane-head">
-      <button id="btn-menu" class="icon only-narrow" aria-label="Feeds" data-icon="menu"></button>
-      <h2 id="list-title">Unread</h2>
+      <button id="btn-tree" class="icon" title="Show the sidebar" aria-label="Show the sidebar"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg></button>
+      <h2 id="list-title">Recent</h2>
       <button id="btn-editfeed" class="icon" title="Edit this feed" aria-label="Edit this feed" data-icon="pencil" hidden></button>
       <div class="spacer"></div>
       <button id="btn-view" class="icon" aria-label="Switch between cards and list" data-icon="dashboard"></button>
       <button id="btn-filter" class="chip" title="Toggle unread only (u)">Unread</button>
       <button id="btn-markall" class="icon" title="Mark all read" aria-label="Mark all read" data-icon="check-all"></button>
     </header>
-    <div class="searchbar"><input id="q" type="search" placeholder="Search titles and summaries…" autocomplete="off"></div>
+    <div class="subbar"><input id="q" type="search" placeholder="Search titles and summaries…" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
     <ul id="entries"></ul>
     <div id="list-empty" hidden>Nothing here. Go outside.</div>
   </section>
@@ -56,11 +54,12 @@
         <button id="btn-prev" class="icon" title="Previous (k)" aria-label="Previous" data-icon="chevron-up"></button>
         <button id="btn-next" class="icon" title="Next (j)" aria-label="Next" data-icon="chevron-down"></button>
         <button id="btn-summary" class="icon" title="Summarize this article" aria-label="Summarize this article" data-icon="list" hidden></button>
-        <button id="btn-star" class="icon" title="Star" aria-label="Star" data-icon="star"></button>
+        <button id="btn-star" class="icon" title="Star (f)" aria-label="Star" data-icon="star"></button>
         <button id="btn-unread" class="icon" title="Mark unread (m)" aria-label="Mark unread" data-icon="mail-open"></button>
         <a id="btn-open" class="icon" target="_blank" rel="noopener" title="Open original (o)" aria-label="Open original" data-icon="external"></a>
         <button id="btn-share" class="icon" title="Share this article" aria-label="Share this article" data-icon="share"></button>
         <button id="btn-save" class="icon save-btn" title="Save a clip to the Obsidian inbox (s)" aria-label="Save a clip to Obsidian"></button>
+        <button id="btn-art-more" class="icon" title="More" aria-label="More"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg></button>
       </header>
       <div class="art-scroll" id="art-scroll">
         <div class="art-body">
@@ -77,73 +76,84 @@
   <div id="scrim"></div>
 </div>
 
-<dialog id="dlg-add">
-  <form method="dialog" id="form-add">
-    <h3>Find feeds</h3>
-    <div class="searchrow">
-      <input id="add-url" type="text" inputmode="search" autocapitalize="off" autocorrect="off" required placeholder="Keywords, a site, or a feed address" aria-label="Search or address">
-      <button class="primary" id="add-go">Search</button>
-    </div>
-    <label>Add to folder <select id="add-folder"></select></label>
-    <input id="add-folder-new" type="text" placeholder="New folder name" autocapitalize="words" hidden>
-    <p id="add-msg" class="msg"></p>
-    <ul id="results"></ul>
-    <div class="row"><button type="button" class="linkish" id="add-cancel">Close</button></div>
-  </form>
-</dialog>
-
-<dialog id="dlg-manage">
-  <h3>Manage feeds</h3>
-  <div class="row wrap">
-    <button class="btn linkish" id="manage-find">Find feeds…</button>
-    <label class="btn linkish">Import OPML<input type="file" id="opml-file" accept=".opml,.xml,text/xml" hidden></label>
-    <a class="btn linkish" href="api/opml" download="forage.opml">Export OPML</a>
-    <button class="btn linkish" id="manage-organize" hidden>Organize with AI…</button>
-    <button class="btn linkish" id="manage-undo" hidden>Undo last organize</button>
+<!-- Dialogs are Vault's modal: a scrim, a .modal-box, Esc and a tap outside close it. app.js gives each .dlg the showModal()/close()/open of a <dialog>. -->
+<div class="dlg" id="dlg-add" role="dialog" aria-modal="true" aria-labelledby="add-h" hidden>
+  <div class="modal-box">
+    <form id="form-add">
+      <h3 id="add-h">Find feeds</h3>
+      <div class="searchrow">
+        <input id="add-url" type="text" inputmode="search" autocapitalize="off" autocorrect="off" required placeholder="Keywords, a site, or a feed address" aria-label="Search or address">
+        <button class="chip on" id="add-go">Search</button>
+      </div>
+      <label class="flabel2">Add to folder <select id="add-folder"></select></label>
+      <input id="add-folder-new" type="text" placeholder="New folder name" autocapitalize="words" hidden>
+      <p id="add-msg" class="msg"></p>
+      <ul id="results"></ul>
+      <div class="btns"><button type="button" class="chip" id="add-cancel">Close</button></div>
+    </form>
   </div>
-  <ul id="manage-list"></ul>
-  <div class="row"><button class="primary" id="manage-close">Done</button></div>
-</dialog>
+</div>
 
-<dialog id="dlg-organize">
-  <h3>Organize with AI</h3>
-  <p id="org-msg" class="hint"></p>
-  <ul id="org-list"></ul>
-  <div class="row"><button class="linkish" id="org-cancel">Cancel</button><button class="linkish" id="org-again" hidden>Try again</button><button class="primary" id="org-apply" hidden>Apply</button></div>
-</dialog>
+<div class="dlg" id="dlg-manage" role="dialog" aria-modal="true" aria-labelledby="manage-h" hidden>
+  <div class="modal-box wide">
+    <h3 id="manage-h">Manage feeds</h3>
+    <div class="btns wrap">
+      <button class="chip" id="manage-find">Find feeds…</button>
+      <label class="chip">Import OPML<input type="file" id="opml-file" accept=".opml,.xml,text/xml" hidden></label>
+      <a class="chip" href="api/opml" download="forage.opml">Export OPML</a>
+      <button class="chip" id="manage-organize" hidden>Organize with AI…</button>
+      <button class="chip" id="manage-undo" hidden>Undo last organize</button>
+    </div>
+    <ul id="manage-list"></ul>
+    <div class="btns"><button class="chip on" id="manage-close">Done</button></div>
+  </div>
+</div>
 
-<dialog id="dlg-feed">
-  <form id="form-feed" method="dialog">
-    <h3>Edit feed</h3>
-    <label>Name <input id="feed-title" type="text" autocapitalize="words"></label>
-    <label>Folder <select id="feed-folder"></select></label>
-    <input id="feed-folder-new" type="text" placeholder="New folder name" autocapitalize="words" hidden>
-    <label class="check" id="feed-shorts-row" hidden><input id="feed-shorts" type="checkbox"> Hide YouTube Shorts</label>
-    <p id="feed-url" class="hint"></p>
-    <div class="row tools"><button type="button" class="linkish" id="feed-suggest" hidden>Suggest a folder</button><button type="button" class="linkish" id="feed-backfill">Fetch older articles</button></div>
-    <p id="feed-msg" class="msg"></p>
-    <div class="row between"><button type="button" class="danger" id="feed-remove">Remove feed</button><span class="grow"></span><button type="button" class="linkish" id="feed-cancel">Cancel</button><button class="primary" id="feed-save">Save</button></div>
-  </form>
-</dialog>
+<div class="dlg" id="dlg-organize" role="dialog" aria-modal="true" aria-labelledby="org-h" hidden>
+  <div class="modal-box wide">
+    <h3 id="org-h">Organize with AI</h3>
+    <p id="org-msg" class="hint"></p>
+    <ul id="org-list"></ul>
+    <div class="btns"><button class="chip" id="org-cancel">Cancel</button><button class="chip" id="org-again" hidden>Try again</button><button class="chip on" id="org-apply" hidden>Apply</button></div>
+  </div>
+</div>
 
-<dialog id="dlg-settings">
-  <form id="form-settings" method="dialog">
-    <h3>Settings</h3>
-    <label>Obsidian inbox folder
-      <input id="set-inbox" type="text" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="/path/to/your/vault/inbox">
-    </label>
-    <p id="set-inbox-note" class="hint"></p>
-    <label class="check"><input id="set-git" type="checkbox"> Commit and push each saved clip</label>
-    <p id="set-git-note" class="hint"></p>
-    <label class="check"><input id="set-wiki" type="checkbox"> Write the author as a [[wikilink]]</label>
-    <label>Check for new articles every <span class="inline"><input id="set-refresh" type="number" min="5" max="1440" step="5" inputmode="numeric"> minutes</span></label>
-    <label id="set-org-row" hidden>AI model for organizing feeds <input id="set-org" type="text" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
-    <p id="set-msg" class="msg"></p>
-    <div class="row"><button type="button" class="linkish" id="set-cancel">Cancel</button><button class="primary" id="set-save">Save</button></div>
-  </form>
-</dialog>
+<div class="dlg" id="dlg-feed" role="dialog" aria-modal="true" aria-labelledby="feed-h" hidden>
+  <div class="modal-box">
+    <form id="form-feed">
+      <h3 id="feed-h">Edit feed</h3>
+      <label class="flabel2">Name <input id="feed-title" type="text" autocapitalize="words"></label>
+      <label class="flabel2">Folder <select id="feed-folder"></select></label>
+      <input id="feed-folder-new" type="text" placeholder="New folder name" autocapitalize="words" hidden>
+      <label class="check" id="feed-shorts-row" hidden><input id="feed-shorts" type="checkbox"> Hide YouTube Shorts</label>
+      <p id="feed-url" class="hint"></p>
+      <div class="btns tools"><button type="button" class="chip" id="feed-suggest" hidden>Suggest a folder</button><button type="button" class="chip" id="feed-backfill">Fetch older articles</button></div>
+      <p id="feed-msg" class="msg"></p>
+      <div class="btns between"><button type="button" class="chip danger" id="feed-remove">Remove feed</button><span class="grow"></span><button type="button" class="chip" id="feed-cancel">Cancel</button><button class="chip on" id="feed-save">Save</button></div>
+    </form>
+  </div>
+</div>
 
-<div id="toast" role="status" aria-live="polite"></div>
+<div class="dlg" id="dlg-settings" role="dialog" aria-modal="true" aria-labelledby="set-h" hidden>
+  <div class="modal-box">
+    <form id="form-settings">
+      <h3 id="set-h">Settings</h3>
+      <label class="flabel2">Obsidian inbox folder
+        <input id="set-inbox" type="text" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="/path/to/your/vault/inbox">
+      </label>
+      <p id="set-inbox-note" class="hint"></p>
+      <label class="check"><input id="set-git" type="checkbox"> Commit and push each saved clip</label>
+      <p id="set-git-note" class="hint"></p>
+      <label class="check"><input id="set-wiki" type="checkbox"> Write the author as a [[wikilink]]</label>
+      <label class="flabel2">Check for new articles every <span class="inline"><input id="set-refresh" type="number" min="5" max="1440" step="5" inputmode="numeric"> minutes</span></label>
+      <label class="flabel2" id="set-org-row" hidden>AI model for organizing feeds <input id="set-org" type="text" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+      <p id="set-msg" class="msg"></p>
+      <div class="btns"><button type="button" class="chip" id="set-cancel">Cancel</button><button class="chip on" id="set-save">Save</button></div>
+    </form>
+  </div>
+</div>
+
+<div id="toast" role="status" aria-live="polite" hidden></div>
 <script src="static/app.js"></script>
 </body>
 </html>

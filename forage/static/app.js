@@ -1,5 +1,12 @@
 "use strict";
 const $ = (s) => document.querySelector(s);
+const el = (tag, cls, text) => {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+};
+const clamp = (n, lo, hi) => Math.max(lo, Math.min(n, hi));
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 const S = {
@@ -51,13 +58,140 @@ async function api(path, opts = {}) {
 }
 
 let toastTimer;
-function toast(msg) {
+/* A transient message. With `action` ({label, run}) it carries one button, such as Undo, and stays a little longer. */
+function toast(text, bad = false, action = null) {
   const t = $("#toast");
-  t.textContent = msg;
-  t.classList.add("show");
+  t.replaceChildren(el("span", "", text));
+  if (action) {
+    const b = el("button", "", action.label);
+    b.onclick = () => { t.hidden = true; action.run(); };
+    t.append(b);
+  }
+  t.classList.toggle("bad", bad);
+  t.hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove("show"), 2400);
+  toastTimer = setTimeout(() => { t.hidden = true; }, action ? 9000 : bad ? 6000 : 3200);
 }
+
+let menuOpener = null; // what had focus when a menu opened, so closing by keyboard hands it back
+function closeMenu() {
+  const m = document.getElementById("menu");
+  if (!m) return;
+  m.remove();
+  if (menuOpener?.isConnected) menuOpener.focus?.({ preventScroll: true });
+  menuOpener = null;
+}
+document.addEventListener("keydown", (e) => {
+  const m = document.getElementById("menu");
+  if (!m) return;
+  if (e.key === "Escape") { e.preventDefault(); closeMenu(); return; }
+  if (e.key !== "ArrowDown" && e.key !== "ArrowUp" && e.key !== "Home" && e.key !== "End") return;
+  const items = [...m.querySelectorAll('[role="menuitem"]')];
+  if (!items.length) return;
+  e.preventDefault();
+  const i = items.indexOf(document.activeElement);
+  const to = e.key === "Home" ? 0 : e.key === "End" ? items.length - 1 : e.key === "ArrowDown" ? (i + 1) % items.length : (i - 1 + items.length) % items.length;
+  items[to].focus();
+});
+
+/* A small popup list at an element (or a pointer position). Items run inside the tap that chose them, which matters on
+   iOS: a dialog opened from one can focus its text field and bring up the keyboard. */
+function menu(at, items) {
+  closeMenu();
+  menuOpener = document.activeElement;
+  const m = el("div");
+  m.id = "menu";
+  const scrim = el("div", "menu-scrim");
+  scrim.onclick = closeMenu;
+  scrim.oncontextmenu = (e) => { e.preventDefault(); closeMenu(); };
+  const box = el("div", "menu-box");
+  box.setAttribute("role", "menu");
+  for (const it of items) {
+    if (it === "-") { const hr = el("hr"); hr.setAttribute("role", "separator"); box.append(hr); continue; }
+    const b = el("button", it.danger ? "danger" : "", (it.on ? "\u2713 " : "") + it.label); // a toggle shows a check while it is on
+    b.setAttribute("role", it.on === undefined ? "menuitem" : "menuitemcheckbox");
+    if (it.on !== undefined) b.setAttribute("aria-checked", it.on ? "true" : "false");
+    b.onclick = () => { closeMenu(); menuOpener = null; it.run(); };
+    box.append(b);
+  }
+  m.append(scrim, box);
+  document.body.append(m);
+  const r = at.getBoundingClientRect ? at.getBoundingClientRect() : { left: at.clientX, right: at.clientX, top: at.clientY, bottom: at.clientY };
+  const vh = window.visualViewport?.height || innerHeight;
+  box.style.maxHeight = Math.max(120, vh - 16) + "px";
+  const w = box.offsetWidth, h = box.offsetHeight;
+  box.style.left = clamp((r.left + r.right) / 2 - w / 2, 8, Math.max(8, innerWidth - w - 8)) + "px";
+  box.style.top = clamp(r.bottom + 4, 8, Math.max(8, vh - h - 8)) + "px";
+  box.querySelector('[role^="menuitem"]')?.focus({ preventScroll: true });
+}
+
+/* A confirm or a one-line prompt: with `value` it asks for text (resolving to the string), otherwise it asks to confirm (resolving true).
+   Cancel resolves null. */
+function ask({ title, message = "", value = null, ok = "OK", danger = false }) {
+  return new Promise((resolve) => {
+    const m = el("div", "dlg");
+    m.setAttribute("role", "dialog");
+    m.setAttribute("aria-modal", "true");
+    const box = el("div", "modal-box");
+    const input = value == null ? null : el("input");
+    const done = (v) => { m.remove(); if (opener?.isConnected) opener.focus?.({ preventScroll: true }); resolve(v); };
+    const opener = document.activeElement;
+    const yes = el("button", "chip on" + (danger ? " danger" : ""), ok), no = el("button", "chip", "Cancel");
+    yes.onclick = () => done(input ? input.value : true);
+    no.onclick = () => done(null);
+    m.addEventListener("click", (e) => { if (e.target === m) done(null); });
+    m.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); done(null); } else trapTab(e, m); });
+    const row = el("div", "sheet-row");
+    row.append(yes, no);
+    box.append(el("h3", "", title));
+    if (message) box.append(el("p", "", message));
+    if (input) {
+      input.value = value;
+      for (const [k, v] of [["autocapitalize", "off"], ["autocomplete", "off"], ["autocorrect", "off"], ["spellcheck", "false"]]) input.setAttribute(k, v);
+      input.addEventListener("keydown", (e) => { if (e.key === "Enter") yes.click(); });
+      box.append(input);
+    }
+    box.append(row);
+    m.append(box);
+    document.body.append(m);
+    (input || yes).focus({ preventScroll: true });
+  });
+}
+
+/* Tab stays inside an open dialog. */
+function trapTab(e, root) {
+  if (e.key !== "Tab") return;
+  const f = [...root.querySelectorAll("button, input, select, a[href], [tabindex]:not([tabindex='-1'])")].filter((n) => !n.disabled && !n.closest("[hidden]") && n.offsetParent !== null);
+  if (!f.length) return;
+  const first = f[0], last = f[f.length - 1];
+  if (e.shiftKey && (document.activeElement === first || !root.contains(document.activeElement))) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+}
+
+/* The page's forms live in .dlg overlays (Vault's modal). Each gets the showModal(), close() and open of a <dialog>, so the
+   code that opens and closes them reads the same. Esc or a press on the scrim closes the one on top; focus goes back to what opened it. */
+document.querySelectorAll(".dlg").forEach((d) => {
+  let opener = null, downOnScrim = false;
+  Object.defineProperty(d, "open", { get: () => !d.hidden });
+  d.showModal = () => {
+    if (!d.hidden) return;
+    closeMenu();
+    opener = document.activeElement;
+    d.hidden = false;
+    const first = matchMedia("(pointer: coarse)").matches ? null : d.querySelector("input:not([type=checkbox]):not([type=file]):not([hidden]), select");
+    if (first) first.focus({ preventScroll: true });
+    else { const box = d.querySelector(".modal-box"); box.tabIndex = -1; box.focus({ preventScroll: true }); }
+  };
+  d.close = () => {
+    if (d.hidden) return;
+    d.hidden = true;
+    if (opener?.isConnected && opener !== document.body) opener.focus?.({ preventScroll: true });
+    opener = null;
+  };
+  d.addEventListener("pointerdown", (e) => { downOnScrim = e.target === d; });
+  d.addEventListener("click", (e) => { if (e.target === d && downOnScrim) d.close(); });
+  d.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.preventDefault(); d.close(); } else trapTab(e, d); });
+});
 
 function ago(iso) {
   const s = (Date.now() - new Date(iso)) / 1000;
@@ -83,27 +217,29 @@ let collapsed = new Set();
 try { collapsed = new Set(JSON.parse(localStorage.getItem("forage.collapsed") || "[]")); } catch {}
 function saveCollapsed() { try { localStorage.setItem("forage.collapsed", JSON.stringify([...collapsed])); } catch {} }
 
+/* The sidebar is Vault's Feeds tree: rows with a caret, a mark, a name and an unread pill. A folder's caret folds it, its name opens it. */
 function renderNav() {
   const total = S.feeds.reduce((a, f) => a + f.unread, 0);
   const folders = {};
   S.feeds.forEach((f) => (folders[f.folder] ||= []).push(f));
-  const item = (sc, label, n, cls = "", err = false) =>
-    `<button class="nav-item ${cls} ${err ? "err" : ""} ${scopeKey(S.scope) === scopeKey(sc) ? "sel" : ""}" data-scope='${esc(JSON.stringify(sc))}'><span class="t">${esc(label)}</span>${n ? `<span class="n">${n}</span>` : ""}</button>`;
-  let h = item({ type: "today" }, "Recent", 0, "today") + item({ type: "all" }, "All items", total) + item({ type: "starred" }, "Starred", 0);
+  const cur = scopeKey(S.scope);
+  const row = (sc, ico, label, n, { li = "file", err = false, fold = null, open = false } = {}) =>
+    `<li class="${li} ${err ? "err" : ""} ${cur === scopeKey(sc) ? "active" : ""} ${li === "dir" && open ? "open" : ""}">`
+    + `<div class="row" role="button" tabindex="0" data-scope='${esc(JSON.stringify(sc))}'${fold != null ? ` aria-expanded="${open}"` : ""}>`
+    + `<span class="caret"${fold != null ? ` data-fold="${esc(fold)}"` : ""}></span><span class="ico ${ico}"></span><span class="name">${esc(label)}</span>${n ? `<span class="badge">${n}</span>` : ""}</div>`;
+  const feedRow = (f) => row({ type: "feed", id: f.id }, "feed", f.title || f.url, f.unread, { err: !!f.error }) + "</li>";
+  let h = row({ type: "today" }, "clock", "Recent", 0) + "</li>" + row({ type: "all" }, "feed", "All items", total) + "</li>" + row({ type: "starred" }, "star", "Starred", 0) + "</li>";
   const names = Object.keys(folders).sort((a, b) => (!a - !b) || a.localeCompare(b));  // folders by name, unfiled last
   for (const name of names) {
-    const feedsHtml = folders[name].map((f) => item({ type: "feed", id: f.id }, f.title || f.url, f.unread, name ? "nav-feed" : "", !!f.error)).join("");
-    if (name) {
-      const n = folders[name].reduce((a, f) => a + f.unread, 0);
-      const closed = collapsed.has(name);
-      h += `<div class="nav-fold"><button class="caret" data-fold="${esc(name)}" aria-label="${closed ? "Expand" : "Collapse"} ${esc(name)}" aria-expanded="${!closed}">${closed ? "▸" : "▾"}</button>`
-        + item({ type: "folder", name }, name, n, "folder") + `</div>` + (closed ? "" : feedsHtml);
-    } else {
-      if (names.length > 1) h += `<div class="nav-folder">Unfiled</div>`;
-      h += feedsHtml;
-    }
+    const feeds = folders[name];
+    if (!name && names.length === 1) { h += feeds.map(feedRow).join(""); continue; }  // no folders at all: just the feeds
+    const n = feeds.reduce((a, f) => a + f.unread, 0), open = !collapsed.has(name);
+    if (name) h += row({ type: "folder", name }, "folder", name, n, { li: "dir", fold: name, open });
+    else h += `<li class="dir ${open ? "open" : ""}"><div class="row" role="button" tabindex="0" data-fold="" aria-expanded="${open}"><span class="caret" data-fold=""></span><span class="ico folder"></span><span class="name">Unfiled</span>${n ? `<span class="badge">${n}</span>` : ""}</div>`;
+    h += `<ul ${open ? "" : "hidden"}>${feeds.map(feedRow).join("")}</ul></li>`;
   }
-  $("#nav").innerHTML = h;
+  $("#nav").innerHTML = `<ul>${h}</ul>`;
+  $("#counts").textContent = `${total.toLocaleString()} unread \u00b7 ${S.feeds.length} feed${S.feeds.length === 1 ? "" : "s"}`;
   document.title = total ? `(${total}) Forage` : "Forage";
   try { navigator.setAppBadge?.(total); } catch {}
 }
@@ -602,7 +738,7 @@ function stopMedia() {
 }
 function resumeMedia() { $("#art-content").querySelectorAll("iframe[data-src]").forEach((f) => { f.src = f.dataset.src; delete f.dataset.src; }); }
 function setView(v) { $("#app").dataset.view = v; if (v === "reader") resumeMedia(); else if (S.narrow) stopMedia(); requestAnimationFrame(() => layoutPaging()); }
-function setMenu(open) { $("#app").dataset.menu = open ? "open" : ""; }
+function setMenu(open) { $("#app").dataset.drawer = open ? "open" : "closed"; }
 // View state lives in history.state, not the URL hash: a reload used to leave a stale "#e…" that made Back a no-op.
 history.replaceState(null, "", location.pathname);
 addEventListener("popstate", () => setView(history.state?.view === "reader" ? "reader" : "list"));
@@ -645,7 +781,7 @@ function renderManage() {
   for (const name of names) {
     const count = groups[name].length;
     if (S.edit?.type === "folder" && S.edit.name === name) {
-      h += `<li class="m-head editing"><input class="e-name" type="text" value="${esc(name)}" autocapitalize="words"><button data-cancel>Cancel</button><button class="primary" data-saveren="${esc(name)}">Save</button></li>`;
+      h += `<li class="m-head editing"><input class="e-name" type="text" value="${esc(name)}" autocapitalize="words"><button class="chip" data-cancel>Cancel</button><button class="chip on" data-saveren="${esc(name)}">Save</button></li>`;
     } else {
       h += `<li class="m-head"><span class="t">${esc(name || "Unfiled")} <span class="n">${count}</span></span>`
         + (name ? `<button data-ren="${esc(name)}">Rename</button><button class="danger" data-delf="${esc(name)}">Delete</button>` : "") + `</li>`;
@@ -654,7 +790,7 @@ function renderManage() {
       if (S.edit?.type === "feed" && S.edit.id === f.id) {
         h += `<li class="m-edit" data-id="${f.id}"><input class="e-title" type="text" value="${esc(f.title)}" placeholder="${esc(f.url)}">
           <select class="e-folder">${folderOptions(f.folder)}</select><input class="e-new" type="text" placeholder="New folder name" autocapitalize="words" hidden>
-          <div class="row"><button data-cancel>Cancel</button><button class="primary" data-savefeed="${f.id}">Save</button></div></li>`;
+          <div class="btns"><button class="chip" data-cancel>Cancel</button><button class="chip on" data-savefeed="${f.id}">Save</button></div></li>`;
       } else {
         h += `<li class="m-feed" data-id="${f.id}"><span class="t">${esc(f.title || f.url)}${f.error ? `<br><span class="e">${esc(f.error)}</span>` : quietNote(f)}</span><button data-edit="${f.id}">Edit</button><button class="danger" data-del="${f.id}">Remove</button></li>`;
       }
@@ -726,7 +862,7 @@ $("#feed-backfill").onclick = () => runFeedJob("backfill", { limit: 50 }, "Looki
   (st) => `Added ${st.new} older articles (${st.method}), marked read.`);
 $("#feed-remove").onclick = async () => {
   const f = currentFeed(); if (!f) return;
-  if (!confirm(`Remove "${f.title || f.url}" and its articles? Anything you saved to Obsidian stays.`)) return;
+  if (!(await ask({ title: "Remove this feed?", message: `${f.title || f.url}: its articles go too. Anything you saved to Obsidian stays.`, ok: "Remove feed", danger: true }))) return;
   try {
     await api("/feeds/" + f.id, { method: "DELETE" });
     $("#dlg-feed").close(); S.scope = { type: "all" }; await loadFeeds(); await loadEntries(); toast("Feed removed");
@@ -749,11 +885,11 @@ function fillSettings(st) {
     : "That folder isn't inside a git checkout, so there's nothing to commit to.";
   if (st.publish_error) $("#set-git-note").textContent += ` The last push failed (${st.publish_error}); the clip is saved but not yet pushed.`;
 }
-$("#btn-settings").onclick = async () => {
+async function openSettings() {
   setMenu(false); $("#set-msg").textContent = "";
   try { fillSettings(await api("/settings")); $("#dlg-settings").showModal(); }
   catch (e) { toast("Couldn't load settings: " + e.message); }
-};
+}
 $("#set-cancel").onclick = () => $("#dlg-settings").close();
 $("#form-settings").addEventListener("submit", async (ev) => {
   ev.preventDefault();
@@ -775,6 +911,13 @@ $("#nav").addEventListener("click", (e) => {
   const b = e.target.closest("[data-scope]");
   if (b) setScope(JSON.parse(b.dataset.scope));
 });
+$("#nav").addEventListener("keydown", (e) => {
+  const r = e.target.closest(".row");
+  if (!r || e.target !== r) return;
+  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); r.click(); return; }
+  const li = r.parentElement, f = r.querySelector("[data-fold]");
+  if (f && ((e.key === "ArrowRight" && !li.classList.contains("open")) || (e.key === "ArrowLeft" && li.classList.contains("open")))) { e.preventDefault(); f.click(); }
+});
 $("#entries").addEventListener("click", (e) => { const li = e.target.closest("li[data-id]"); if (li) openEntry(+li.dataset.id); });
 $("#entries").addEventListener("keydown", (e) => {
   if (e.key !== "Enter" && e.key !== " ") return;
@@ -784,7 +927,6 @@ $("#entries").addEventListener("scroll", (e) => {
   const el = e.target;
   if (!S.done && el.scrollTop + el.clientHeight > el.scrollHeight - 400) loadEntries(true);
 });
-$("#btn-menu").onclick = () => setMenu(true);
 $("#scrim").onclick = () => setMenu(false);
 function setCards(on) {
   S.cards = on;
@@ -819,7 +961,7 @@ $("#btn-markall").onclick = async () => {
   const sc = S.scope;
   if (sc.type === "starred") return toast("Mark all read doesn't apply to Starred");
   if (S.q) return toast("Clear the search first: this marks the whole view, not just the matches");
-  if (!confirm(`Mark everything in "${scopeTitle()}" as read?`)) return;
+  if (!(await ask({ title: "Mark everything read?", message: `Everything in "${scopeTitle()}".`, ok: "Mark read" }))) return;
   const body = {};
   if (sc.type === "feed") body.feed = sc.id;
   if (sc.type === "folder") body.folder = sc.name;
@@ -837,6 +979,40 @@ $("#q").addEventListener("input", (e) => { clearTimeout(qTimer); qTimer = setTim
 
 function openFind() { setMenu(false); $("#add-folder").innerHTML = folderOptions("") + (S.ai ? `<option value="__ai__">Let AI pick</option>` : ""); $("#add-folder-new").hidden = true; $("#add-folder-new").value = ""; $("#add-msg").textContent = ""; $("#results").innerHTML = ""; $("#dlg-add").showModal(); $("#add-url").focus(); }
 $("#btn-add").onclick = openFind;
+$("#btn-home").onclick = () => setScope({ type: "today" });
+$("#btn-side-more").onclick = (e) => menu(e.currentTarget, [
+  { label: "Refresh all", run: refreshAll },
+  { label: "Find feeds\u2026", run: openFind },
+  { label: "Manage feeds\u2026", run: openManage },
+  "-",
+  { label: "Settings\u2026", run: openSettings },
+]);
+/* The sidebar: a drawer on a narrow screen, hidden or shown on a wide one. The same toggle sits in its header while it shows and the list's while it is hidden. */
+const narrowMQ = matchMedia("(max-width: 899px)");
+narrowMQ.addEventListener("change", () => setMenu(false)); // crossing the breakpoint (rotation, Split View) must not leave a drawer or scrim behind
+try { if (localStorage.getItem("forage.treeOff") === "1") $("#app").classList.add("tree-off"); } catch {}
+$("#btn-tree").onclick = () => {
+  if (narrowMQ.matches) { setMenu(true); return; }
+  $("#app").classList.remove("tree-off");
+  try { localStorage.setItem("forage.treeOff", "0"); } catch {}
+  layoutCards();
+};
+$("#btn-tree-side").onclick = () => {
+  if (narrowMQ.matches) { setMenu(false); return; }
+  $("#app").classList.add("tree-off");
+  try { localStorage.setItem("forage.treeOff", "1"); } catch {}
+  layoutCards();
+};
+/* Phone width: the article bar keeps Previous, Next, Star and Save, and the rest is behind More. */
+$("#btn-art-more").onclick = (e) => {
+  const a = S.art;
+  menu(e.currentTarget, [
+    { label: "Focus mode", on: !!S.focus, run: () => setFocus(!S.focus) },
+    ...(a?.summary_on ? [{ label: "Summarize", run: () => summarizeNow(false) }] : []),
+    { label: S.entries.find((x) => x.id === S.cur)?.is_read === 0 ? "Mark read" : "Mark unread", run: toggleRead },
+    ...(a?.url ? [{ label: "Open original", run: () => window.open(a.url, "_blank", "noopener") }, { label: "Share\u2026", run: share }] : []),
+  ]);
+};
 $("#manage-find").onclick = () => { $("#dlg-manage").close(); openFind(); };
 $("#add-cancel").onclick = () => $("#dlg-add").close();
 $("#add-folder").addEventListener("change", (e) => { const n = $("#add-folder-new"); n.hidden = e.target.value !== "__new__"; if (!n.hidden) n.focus(); });
@@ -892,12 +1068,12 @@ $("#manage-list").addEventListener("click", async (e) => {
       S.edit = null; await manageRefresh();
       if (merging) toast(`Merged into ${to}`);
     } else if (d.delf) {
-      if (!confirm(`Delete folder "${d.delf}"? Its feeds move to Unfiled.`)) return;
+      if (!(await ask({ title: "Delete this folder?", message: `${d.delf}: its feeds stay, moved to Unfiled.`, ok: "Delete folder", danger: true }))) return;
       await api("/folders/delete", { method: "POST", body: { name: d.delf } });
       if (S.scope.type === "folder" && S.scope.name === d.delf) S.scope = { type: "all" };
       await manageRefresh();
     } else if (d.del) {
-      if (!confirm("Remove this feed and its articles?")) return;
+      if (!(await ask({ title: "Remove this feed?", message: "Its articles go too.", ok: "Remove feed", danger: true }))) return;
       await api("/feeds/" + d.del, { method: "DELETE" });
       if (S.scope.type === "feed" && S.scope.id === +d.del) S.scope = { type: "all" };
       await manageRefresh();
@@ -915,7 +1091,7 @@ async function loadAi() {
   try { const st = await api("/settings"); S.ai = st.ai_on; S.undo = st.folders_undo; S.vocab = st.folder_vocab || []; } catch {}
   $("#manage-organize").hidden = !S.ai; $("#manage-undo").hidden = !S.undo;
 }
-$("#btn-manage").onclick = () => { setMenu(false); S.edit = null; renderManage(); $("#dlg-manage").showModal(); loadAi(); };
+function openManage() { setMenu(false); S.edit = null; renderManage(); $("#dlg-manage").showModal(); loadAi(); }
 
 /* ---------- organize with AI: propose, look, apply (and undo) ---------- */
 let proposal = null;
@@ -966,7 +1142,7 @@ $("#opml-file").addEventListener("change", async (e) => {
 });
 
 addEventListener("keydown", (e) => {
-  if (e.metaKey || e.ctrlKey || e.altKey || /input|textarea/i.test(e.target.tagName) || document.querySelector("dialog[open]")) return;
+  if (e.metaKey || e.ctrlKey || e.altKey || /input|textarea/i.test(e.target.tagName) || document.querySelector(".dlg:not([hidden]), #menu")) return;
   const k = e.key;
   if (k === "z") { setFocus(!S.focus); return; }
   if (focusOn()) {
