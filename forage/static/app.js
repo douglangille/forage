@@ -218,6 +218,20 @@ try { collapsed = new Set(JSON.parse(localStorage.getItem("forage.collapsed") ||
 function saveCollapsed() { try { localStorage.setItem("forage.collapsed", JSON.stringify([...collapsed])); } catch {} }
 
 /* The sidebar is Vault's Feeds tree: rows with a caret, a mark, a name and an unread pill. A folder's caret folds it, its name opens it. */
+/* The footer's line: how long the open article takes to read (Vault counts it the same way, about 230 words a minute), else the unread and feed counts. */
+const WORD = /[\p{L}\p{N}][\p{L}\p{N}'\u2019_-]*/gu;
+function readingTime(html) {
+  const doc = new DOMParser().parseFromString(html || "", "text/html");
+  for (const block of doc.body.querySelectorAll("p, div, h1, h2, h3, h4, h5, h6, li, blockquote, tr, figure, figcaption, pre, ul, ol, br")) block.after(doc.createTextNode(" "));
+  const words = (doc.body.textContent.match(WORD) || []).length;
+  return `${Math.max(1, Math.round(words / 230))} min read \u00b7 ${words.toLocaleString()} words`;
+}
+function footCounts() {
+  const reading = S.art && !$("#article").hidden && (!S.narrow || $("#app").dataset.view === "reader");
+  if (reading) { $("#counts").textContent = readingTime(S.art.html); return; }
+  const total = S.feeds.reduce((a, f) => a + f.unread, 0);
+  $("#counts").textContent = `${total.toLocaleString()} unread \u00b7 ${S.feeds.length} feed${S.feeds.length === 1 ? "" : "s"}`;
+}
 function renderNav() {
   const total = S.feeds.reduce((a, f) => a + f.unread, 0);
   const folders = {};
@@ -239,7 +253,7 @@ function renderNav() {
     h += `<ul ${open ? "" : "hidden"}>${feeds.map(feedRow).join("")}</ul></li>`;
   }
   $("#nav").innerHTML = `<ul>${h}</ul>`;
-  $("#counts").textContent = `${total.toLocaleString()} unread \u00b7 ${S.feeds.length} feed${S.feeds.length === 1 ? "" : "s"}`;
+  footCounts();
   document.title = total ? `(${total}) Forage` : "Forage";
   try { navigator.setAppBadge?.(total); } catch {}
 }
@@ -401,6 +415,7 @@ async function openEntry(id, { fromList = true } = {}) {
     const a = await api("/entries/" + id);
     if (S.cur !== id) return;
     S.art = a;
+    footCounts();
     $("#art-title").textContent = a.title;
     $("#art-meta").textContent = [a.feed_title, a.author, new Date(a.published).toLocaleDateString(undefined, { dateStyle: "medium" })].filter(Boolean).join(" · ");
     $("#art-content").innerHTML = a.html;
@@ -737,7 +752,7 @@ function stopMedia() {
   $("#art-content").querySelectorAll("video, audio").forEach((m) => m.pause());
 }
 function resumeMedia() { $("#art-content").querySelectorAll("iframe[data-src]").forEach((f) => { f.src = f.dataset.src; delete f.dataset.src; }); }
-function setView(v) { $("#app").dataset.view = v; if (v === "reader") resumeMedia(); else if (S.narrow) stopMedia(); requestAnimationFrame(() => layoutPaging()); }
+function setView(v) { $("#app").dataset.view = v; footCounts(); if (v === "reader") resumeMedia(); else if (S.narrow) stopMedia(); requestAnimationFrame(() => layoutPaging()); }
 function setMenu(open) { $("#app").dataset.drawer = open ? "open" : "closed"; }
 // View state lives in history.state, not the URL hash: a reload used to leave a stale "#e…" that made Back a no-op.
 history.replaceState(null, "", location.pathname);
