@@ -30,6 +30,9 @@ const ICONS = {
 const svg = (name) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[name]}"/></svg>`;
 function setIcon(el, name) { if (el.dataset.icon !== name || !el.firstChild) { el.dataset.icon = name; el.innerHTML = svg(name); } }
 document.querySelectorAll("[data-icon]").forEach((el) => setIcon(el, el.dataset.icon));
+// The byline folds open onto the summary; the choice is remembered, as Vault remembers its own.
+try { $("#art-by").open = localStorage.getItem("forage.byline") === "1"; } catch {}
+$("#art-by").addEventListener("toggle", (e) => { try { localStorage.setItem("forage.byline", e.target.open ? "1" : "0"); } catch {} });
 
 async function api(path, opts = {}) {
   const r = await fetch("api" + path, {
@@ -385,7 +388,7 @@ async function openEntry(id, { fromList = true } = {}) {
   $("#reader-empty").hidden = true;
   $("#article").hidden = false;
   $("#art-title").textContent = e?.title || "";
-  $("#art-meta").textContent = e ? e.feed_title : "";
+  $("#art-meta").textContent = e?.feed_title || "Article";
   $("#art-content").innerHTML = '<p class="meta">Loading…</p>';
   renderSummary("");
   $("#art-scroll").scrollTop = 0;
@@ -399,7 +402,7 @@ async function openEntry(id, { fromList = true } = {}) {
     S.art = a;
     footCounts();
     $("#art-title").textContent = a.title;
-    $("#art-meta").textContent = [a.feed_title, a.author, new Date(a.published).toLocaleDateString(undefined, { dateStyle: "medium" })].filter(Boolean).join(" · ");
+    $("#art-meta").textContent = [a.author, a.feed_title, new Date(a.published).toLocaleDateString(undefined, { dateStyle: "medium" })].filter(Boolean).join(" · ") || "Article";
     $("#art-content").innerHTML = a.html;
     renderSummary(a.summary, a.summary_model);
     $("#art-content").querySelectorAll("a").forEach((l) => (l.target = "_blank"));
@@ -448,32 +451,28 @@ async function share() {
   } catch (err) { if (err.name !== "AbortError") toast("Couldn't share: " + err.message); }
 }
 
-// An on-demand summary of the open article: kept by the server, shown above the text. The model's output is escaped, never HTML.
+// An on-demand summary of the open article: kept by the server, and folded under the byline as Vault's is. The model's output is escaped, never HTML.
 function renderSummary(text, model, note = "") {
   const box = $("#art-summary");
+  $("#art-by").classList.toggle("empty", !text); // nothing to fold open: the byline is just text
   if (!text) { box.hidden = true; box.innerHTML = ""; return; }
-  const bullets = text.split("\n").map((l) => l.replace(/^-\s+/, "").trim()).filter(Boolean)
+  const bullets = text.split("\n").map((l) => l.replace(/^\s*[-*\u2022]\s*/, "").trim()).filter(Boolean)
     .map((l) => `<li>${esc(l).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")}</li>`).join("");
-  box.innerHTML = `<details open><summary>Summary · AI-written${model ? " by " + esc(model) : ""}</summary><ul>${bullets}</ul>`
-    + (note ? `<p class="redo">${esc(note)}</p>` : "") + `<p class="redo"><button type="button" class="linkish" id="sum-redo">Summarize again</button></p></details>`;
+  box.innerHTML = `<p class="flabel">AI-written summary${model ? " \u00b7 " + esc(model) : ""}</p><ul>${bullets}</ul>` + (note ? `<p class="flabel">${esc(note)}</p>` : "");
   box.hidden = false;
-  $("#sum-redo").onclick = () => summarizeNow(true);
 }
 async function summarizeNow(force = false) {
   const id = S.cur;
   if (!id || S.summarizing) return;
-  const box = $("#art-summary");
-  if (!force && !box.hidden) { box.querySelector("details").open = !box.querySelector("details").open; return; }  // already there: fold it
-  S.summarizing = true;
-  if (box.hidden) { box.innerHTML = '<p class="redo">Summarizing…</p>'; box.hidden = false; }
+  S.summarizing = true; toast("Summarizing\u2026");
   try {
     const r = await api(`/entries/${id}/summarize`, { method: "POST", body: { force } });
     if (S.cur !== id) return;
+    S.art.summary = r.summary; S.art.summary_model = r.model;
     renderSummary(r.summary, r.model, [r.note, r.truncated ? "Only the first part of a long article was summarized." : ""].filter(Boolean).join(" "));
-  } catch (err) {
-    if (S.cur === id) { if (S.art?.summary) renderSummary(S.art.summary, S.art.summary_model); else { box.hidden = true; box.innerHTML = ""; } }
-    toast(err.message);
-  } finally { S.summarizing = false; }
+    $("#art-by").open = true; // a summary you just asked for shows
+  } catch (err) { toast(err.message); }
+  finally { S.summarizing = false; }
 }
 
 async function toggleStar() {
@@ -996,7 +995,7 @@ $("#btn-art-more").onclick = (e) => {
   const a = S.art, read = S.entries.find((x) => x.id === S.cur)?.is_read !== 0;
   menu(e.currentTarget, [
     { label: read ? "Mark unread" : "Mark read", run: toggleRead },
-    ...(a?.summary_on ? [{ label: "Summarize", run: () => summarizeNow(false) }] : []),
+    ...(a?.summary_on ? [{ label: a.summary ? "Summarize again" : "Summarize", run: () => summarizeNow(!!a.summary) }] : []),
     { label: "Focus mode", on: !!S.focus, run: () => setFocus(!S.focus) },
     ...(a?.url ? [
       { label: "Share\u2026", run: share },

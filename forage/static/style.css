@@ -150,7 +150,6 @@ li.none { color: var(--faint); padding: 8px; font-size: 14px; }
 /* ===== end of shared chrome ===== */
 
 /* Forage's own: the list, the reader and the dialogs' forms. */
-.linkish { background: none; border: 0; color: var(--accent); padding: 6px 4px; text-decoration: none; }
 #btn-star.on { color: var(--gold-t); }
 #btn-star.on svg { fill: currentColor; }
 .save-btn:disabled { opacity: .5; }
@@ -183,11 +182,7 @@ li.none { color: var(--faint); padding: 8px; font-size: 14px; }
 #app[data-focus="1"] .art-scroll::-webkit-scrollbar { display: none; }
 #app[data-focus="1"] .art-body { max-width: none; margin: 0 auto; height: 100%; column-count: var(--cols, 1); column-gap: 3.5em; column-fill: auto; }
 #app[data-focus="1"] #art-pad { display: block; position: absolute; top: 0; width: 1px; height: 1px; visibility: hidden; }
-#app[data-focus="1"] .ai-sum { border-left: 3px solid var(--accent); background: var(--hover); border-radius: 0 6px 6px 0; padding: 4px 14px 8px; margin: 0 0 1.4em; font-size: .92em; break-inside: avoid; }
-.ai-sum summary { cursor: pointer; font-family: var(--font-ui, inherit); color: var(--muted); font-size: .85em; padding: 6px 0; }
-.ai-sum ul { margin: .3em 0 .2em; padding-left: 1.2em; }
-.ai-sum li { margin: .35em 0; }
-.ai-sum .redo { font-size: .8em; color: var(--muted); }
+#app[data-focus="1"] .fbyline { break-inside: avoid; }
 .prose img { max-height: calc(100dvh - 200px); width: auto; max-width: 100%; object-fit: contain; }
 #app[data-focus="1"] .prose img, #app[data-focus="1"] .prose figure, #app[data-focus="1"] .prose blockquote, #app[data-focus="1"] .prose pre { break-inside: avoid; }
 #app[data-focus="1"] .prose pre { max-height: calc(100dvh - 200px); overflow: auto; }
@@ -200,6 +195,18 @@ body:has(#app[data-focus="1"]) #toast { bottom: auto; top: calc(64px + var(--sat
   #app[data-focus="1"] #side, #app[data-focus="1"] #list-pane { display: none; }
 }
 .meta { color: var(--muted); font-size: 13px; margin: 0 0 6px; }
+/* The byline and its summary are Vault's: a folded line above the title that opens onto the AI summary. */
+.fbyline { margin: 0 0 1.2em; font: 13px/1.4 var(--font-ui); }
+.fbyline > summary { cursor: pointer; color: var(--muted); font: 14px var(--font-ui); padding: 4px 0; list-style: none; }
+.fbyline > summary::-webkit-details-marker { display: none; }
+.fbyline > summary::after { content: "\25B8"; margin-left: .5em; color: var(--faint); font-size: 12px; } .fbyline[open] > summary::after { content: "\25BE"; }
+.fbyline.empty > summary { cursor: default; pointer-events: none; } .fbyline.empty > summary::after { display: none; }
+.fsummary { margin: 4px 0 0; padding: 10px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; font: 13px/1.4 var(--font-ui); color: var(--muted); }
+.fsummary ul { margin: 0; padding-left: 1.2em; }
+.fsummary li { font: inherit; margin: 3px 0 0; }
+.fsummary li:first-child { margin-top: 0; }
+.flabel { margin: 0 0 6px; color: var(--faint); font: 13px/1.4 var(--font-ui); text-transform: none; letter-spacing: 0; }
+.fsummary .flabel:last-child:not(:first-child) { margin: 6px 0 0; }
 #art-title { font: 700 1.5em/1.2 var(--font-read); margin: 0 0 20px; padding-bottom: .18em; color: var(--love-h); background: linear-gradient(90deg, color-mix(in srgb, var(--love-h) 60%, transparent), transparent 70%) no-repeat 0 100% / 100% 2px; } /* the article's own title is the page's H1; the fade is the snippet's */
 .prose { font: 1em/1.65 var(--font-read); overflow-wrap: anywhere; }
 .prose img { max-width: 100%; height: auto; border-radius: 6px; }
