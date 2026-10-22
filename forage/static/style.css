@@ -110,13 +110,14 @@ li.dir > .row > .caret { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w
 li.dir.open > .row > .caret { transform: rotate(90deg); }
 li.file > .row > .caret { background: none; }
 /* The folder caret is a touch target of its own: the icon stays 14px, the element around it reaches the row's edges. */
-li.dir > .row > .caret { align-self: stretch; width: 34px; height: auto; margin: -7px -3px -7px -9px; -webkit-mask-size: 14px; mask-size: 14px; }
+li.dir > .row > .caret { align-self: stretch; width: 34px; height: auto; margin: -7px -11px -7px -9px; -webkit-mask-size: 14px; mask-size: 14px; }
 .ico { width: 18px; height: 18px; }
 .ico.folder { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/%3E%3C/svg%3E"); color: var(--accent); }
 .ico.feed { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 5a14 14 0 0 1 14 14M5 11a8 8 0 0 1 8 8'/%3E%3Ccircle cx='6' cy='18' r='1.2'/%3E%3C/svg%3E"); }
 .ico.clock { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7v5l3 2'/%3E%3C/svg%3E"); }
 .ico.star { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l2.7 5.6 6.1.8-4.5 4.2 1.1 6-5.4-3-5.4 3 1.1-6L3.2 9.4l6.1-.8z'/%3E%3C/svg%3E"); }
 li.active > .row .ico { color: var(--accent); }
+li.file:not(.pin):not(.active) > .row > .ico { color: var(--muted); } /* a feed is a file: its mark is muted like Vault's doc mark */
 li.dir > .row > .name, li.pin > .row > .name { font-weight: 600; }
 #nav > ul > li.pin + li:not(.pin) { border-top: 1px solid var(--line); margin: 4px -6px 0; padding: 4px 6px 0; } /* the rule under the pinned scopes, as under Vault's Recent */
 li.err > .row .name::after { content: " \26A0"; color: var(--gold-t); }
