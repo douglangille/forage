@@ -22,9 +22,9 @@
     <header class="side-head">
       <button id="btn-tree-side" class="icon" title="Hide the sidebar" aria-label="Hide the sidebar"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg></button>
       <h1><button id="btn-home" type="button" title="Recent" aria-label="Recent">Forage</button></h1>
-      <button id="btn-add" class="icon" title="Find feeds" aria-label="Find feeds"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></button>
       <button id="btn-side-more" class="icon" title="More" aria-label="More"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg></button>
     </header>
+    <div class="search"><input id="q" type="search" placeholder="Search titles and summaries" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
     <nav id="nav" aria-label="Feeds"></nav>
     <footer id="foot"><span id="counts"></span><button id="btn-refresh" class="chip" title="Refresh all (r)" aria-live="polite">Refresh</button></footer>
   </aside>
@@ -39,7 +39,6 @@
       <button id="btn-filter" class="chip" title="Toggle unread only (u)">Unread</button>
       <button id="btn-markall" class="icon" title="Mark all read" aria-label="Mark all read" data-icon="check-all"></button>
     </header>
-    <div class="subbar"><input id="q" type="search" placeholder="Search titles and summaries…" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
     <ul id="entries"></ul>
     <div id="list-empty" hidden>Nothing here. Go outside.</div>
   </section>

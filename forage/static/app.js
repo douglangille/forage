@@ -977,8 +977,8 @@ $("#btn-markall").onclick = async () => {
 let qTimer;
 $("#q").addEventListener("input", (e) => { clearTimeout(qTimer); qTimer = setTimeout(() => { S.q = e.target.value.trim(); loadEntries(); }, 250); });
 
+$("#q").addEventListener("keydown", (e) => { if (e.key === "Enter" && narrowMQ.matches) { e.preventDefault(); e.target.blur(); setMenu(false); } }); // the drawer covers the list the search filters
 function openFind() { setMenu(false); $("#add-folder").innerHTML = folderOptions("") + (S.ai ? `<option value="__ai__">Let AI pick</option>` : ""); $("#add-folder-new").hidden = true; $("#add-folder-new").value = ""; $("#add-msg").textContent = ""; $("#results").innerHTML = ""; $("#dlg-add").showModal(); $("#add-url").focus(); }
-$("#btn-add").onclick = openFind;
 $("#btn-home").onclick = () => setScope({ type: "today" });
 $("#btn-side-more").onclick = (e) => menu(e.currentTarget, [
   { label: "Refresh all", run: refreshAll },
@@ -1157,7 +1157,7 @@ addEventListener("keydown", (e) => {
   else if (k === "s") save(); else if (k === "m") toggleRead();
   else if (k === "o" && S.art?.url) window.open(S.art.url, "_blank", "noopener");
   else if (k === "r") refreshAll(); else if (k === "u") $("#btn-filter").click();
-  else if (k === "f") toggleStar(); else if (k === "/") { e.preventDefault(); $("#q").focus(); }
+  else if (k === "f") toggleStar(); else if (k === "/") { e.preventDefault(); $("#btn-tree").click(); $("#q").focus(); }
   else return;
 });
 

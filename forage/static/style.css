@@ -82,7 +82,7 @@ a { color: var(--accent); }
 }
 /* Keyboard focus: a visible ring on anything that takes focus, never on a tap. */
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.subbar input:focus-visible, .modal-box input:focus-visible, .modal-box select:focus-visible { outline: none; border-color: var(--accent); }
+.search input:focus-visible, .modal-box input:focus-visible, .modal-box select:focus-visible { outline: none; border-color: var(--accent); }
 .icon svg { width: 18px; height: 18px; display: block; margin: 1px auto; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .chip { background: none; border: 1px solid var(--line); border-radius: 999px; padding: 4px 13px; color: var(--muted); font-size: 14px; text-decoration: none; display: inline-flex; align-items: center; }
 .chip.on { background: var(--sel); color: var(--accent); border-color: var(--accent); }
@@ -91,9 +91,9 @@ a { color: var(--accent); }
 button.chip.danger, .chip.danger { color: var(--love); }
 .chip.on.danger { background: var(--love); border-color: var(--love); color: var(--accent-ink); }
 
-.subbar { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-bottom: 1px solid var(--line); background: var(--panel); }
-.subbar input { flex: 1; min-width: 0; width: 100%; font-size: 16px; padding: 8px 11px; background: var(--bg); border: 1px solid var(--line); border-radius: 9px; outline: none; }
-.subbar input:focus { border-color: var(--accent); }
+.search { padding: 0 12px 8px; display: flex; align-items: center; gap: 4px; }
+.search input { flex: 1; min-width: 0; width: 100%; font-size: 16px; padding: 8px 11px; background: var(--bg); border: 1px solid var(--line); border-radius: 9px; outline: none; }
+.search input:focus { border-color: var(--accent); }
 
 /* The sidebar: Vault's file-tree rows, carrying feeds. Row marks are CSS masks over a flat colour, so they take the palette. */
 #nav { flex: 1; overflow: auto; -webkit-overflow-scrolling: touch; padding: 4px 6px calc(12px + var(--sab)); }
