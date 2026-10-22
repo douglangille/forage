@@ -119,7 +119,6 @@ li.dir > .row > .caret { align-self: stretch; width: 34px; height: auto; margin:
 li.active > .row .ico { color: var(--accent); }
 li.file:not(.pin):not(.active) > .row > .ico { color: var(--muted); } /* a feed is a file: its mark is muted like Vault's doc mark */
 li.dir > .row > .name, li.pin > .row > .name { font-weight: 600; }
-#nav > ul > li.pin + li:not(.pin) { border-top: 1px solid var(--line); margin: 4px -6px 0; padding: 4px 6px 0; } /* the rule under the pinned scopes, as under Vault's Recent */
 li.err > .row .name::after { content: " \26A0"; color: var(--gold-t); }
 .badge { flex: none; min-width: 20px; padding: 0 6px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font: 700 11px/18px var(--font-ui); text-align: center; font-variant-numeric: tabular-nums; }
 .row > .badge { margin-left: auto; }
